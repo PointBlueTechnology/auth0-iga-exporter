@@ -1,0 +1,6 @@
+accountId,permissionId,assignmentType
+auth0|avery,organization-role:org_northwind:rol_viewer,ORGANIZATION_ROLE
+auth0|avery,organization:org_northwind,ORGANIZATION_MEMBER
+auth0|avery,role:rol_billingadmin,DIRECT_ROLE
+auth0|jordan,role:rol_viewer,DIRECT_ROLE
+google-oauth2|samir,organization:org_northwind,ORGANIZATION_MEMBER

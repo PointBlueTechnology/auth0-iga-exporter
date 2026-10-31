@@ -1,0 +1,10 @@
+{
+  "domain": "tenant.example.auth0.com",
+  "clientId": "your-m2m-client-id",
+  "usersSource": "auto",
+  "exportThreshold": 1000,
+  "perPage": 50,
+  "format": "csv,json",
+  "out": "out",
+  "applicationName": "Auth0 (tenant.example.auth0.com)"
+}

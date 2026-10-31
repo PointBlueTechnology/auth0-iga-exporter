@@ -1,0 +1,13 @@
+permissionId,name,description,type,value,applicationName
+api:https://directory.example.com,Partner Directory,Auth0 API (resource server),API,https://directory.example.com,Fictional Northwind tenant
+api:https://invoices.example.com,Invoices API,Auth0 API (resource server),API,https://invoices.example.com,Fictional Northwind tenant
+application:m2mNightlySync,Nightly Sync,Machine-to-machine sync,APPLICATION,m2mNightlySync,Fictional Northwind tenant
+application:spaNorthwindPortal,Northwind Portal,Employee portal,APPLICATION,spaNorthwindPortal,Fictional Northwind tenant
+organization-role:org_northwind:rol_viewer,Invoice Viewer @ Northwind Traders,Role Invoice Viewer in organization Northwind Traders,ORGANIZATION_ROLE,rol_viewer,Fictional Northwind tenant
+organization:org_contoso,Contoso Ltd,Auth0 organization contoso,ORGANIZATION,org_contoso,Fictional Northwind tenant
+organization:org_northwind,Northwind Traders,Auth0 organization northwind,ORGANIZATION,org_northwind,Fictional Northwind tenant
+role:rol_billingadmin,Billing Admin,Manage invoices,ROLE,rol_billingadmin,Fictional Northwind tenant
+role:rol_viewer,Invoice Viewer,Read invoices,ROLE,rol_viewer,Fictional Northwind tenant
+scope:https://directory.example.com::read:partners,read:partners,Read partner records,API_SCOPE,read:partners,Fictional Northwind tenant
+scope:https://invoices.example.com::read:invoices,read:invoices,Read invoices,API_SCOPE,read:invoices,Fictional Northwind tenant
+scope:https://invoices.example.com::write:invoices,write:invoices,Create and update invoices,API_SCOPE,write:invoices,Fictional Northwind tenant

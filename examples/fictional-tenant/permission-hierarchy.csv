@@ -1,0 +1,9 @@
+parentPermissionId,childPermissionId,relation
+api:https://directory.example.com,scope:https://directory.example.com::read:partners,CONTAINS
+api:https://invoices.example.com,scope:https://invoices.example.com::read:invoices,CONTAINS
+api:https://invoices.example.com,scope:https://invoices.example.com::write:invoices,CONTAINS
+organization-role:org_northwind:rol_viewer,scope:https://invoices.example.com::read:invoices,GRANTS
+organization:org_northwind,organization-role:org_northwind:rol_viewer,CONTAINS
+role:rol_billingadmin,scope:https://invoices.example.com::read:invoices,GRANTS
+role:rol_billingadmin,scope:https://invoices.example.com::write:invoices,GRANTS
+role:rol_viewer,scope:https://invoices.example.com::read:invoices,GRANTS
