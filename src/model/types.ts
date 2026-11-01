@@ -10,6 +10,9 @@ export const PERMISSION_TYPES = [
 
 export type PermissionType = (typeof PERMISSION_TYPES)[number];
 
+/** How the account signs in, from its primary identity. */
+export type AccountSource = "DATABASE" | "SOCIAL" | "ENTERPRISE" | "PASSWORDLESS" | "UNKNOWN";
+
 export type AssignmentType = "DIRECT_ROLE" | "ORGANIZATION_MEMBER" | "ORGANIZATION_ROLE" | "GROUP_MEMBER";
 
 export type HierarchyRelation = "GRANTS" | "CONTAINS";
@@ -151,6 +154,9 @@ export interface IgAccount {
   emailVerified: boolean | null;
   givenName: string;
   familyName: string;
+  /** The Auth0 user_id. Equal to accountId unless two connections share the user_id. */
+  userId: string;
+  accountSource: AccountSource;
 }
 
 export interface IgPermission {
@@ -181,6 +187,8 @@ export interface NormalizedExport {
   hierarchy: IgHierarchy[];
   /** Group-to-role mappings that matched no exported group or no role. */
   unmatchedMappings: GroupRoleMapping[];
+  /** user_ids held by users on more than one connection, with the account ids they became. */
+  sharedUserIds: Array<{ userId: string; accountIds: string[] }>;
 }
 
 export interface IgBundle {

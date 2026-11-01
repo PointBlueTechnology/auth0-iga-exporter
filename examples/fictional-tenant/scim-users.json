@@ -34,6 +34,8 @@
         }
       ],
       "urn:ietf:params:scim:schemas:extension:auth0:2.0:User": {
+        "userId": "auth0|avery",
+        "accountSource": "DATABASE",
         "connection": "Username-Password-Authentication",
         "provider": "auth0",
         "lastLogin": "2026-04-30T15:04:00.000Z",
@@ -77,6 +79,8 @@
         }
       ],
       "urn:ietf:params:scim:schemas:extension:auth0:2.0:User": {
+        "userId": "auth0|jordan",
+        "accountSource": "DATABASE",
         "connection": "Username-Password-Authentication",
         "provider": "auth0",
         "lastLogin": "2025-11-02T08:00:00.000Z",
@@ -120,6 +124,8 @@
         }
       ],
       "urn:ietf:params:scim:schemas:extension:auth0:2.0:User": {
+        "userId": "google-oauth2|samir",
+        "accountSource": "SOCIAL",
         "connection": "google-oauth2",
         "provider": "google-oauth2",
         "lastLogin": "",

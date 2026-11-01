@@ -46,6 +46,8 @@ function userResource(account: IgAccount): Record<string, unknown> {
     resource.emails = [{ value: account.email, type: "work", primary: true }];
   }
   resource[AUTH0_USER_EXT] = {
+    userId: account.userId,
+    accountSource: account.accountSource,
     connection: account.connection,
     provider: account.provider,
     lastLogin: account.lastLogin,

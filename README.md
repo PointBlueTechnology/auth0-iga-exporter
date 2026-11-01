@@ -183,6 +183,10 @@ Cells that start with `=`, `+`, `-`, `@`, or a tab are prefixed with a single qu
 
 A user who is referenced by a role or an organization but missing from the user extract is still emitted, so the assignment is not dangling. The description says the profile was not returned.
 
+`accountSource` says how the account signs in, from its primary identity: `DATABASE` (an Auth0 database connection, including custom databases), `SOCIAL`, `ENTERPRISE` (SAML, Azure AD, OIDC, ADFS, and the other enterprise connections), `PASSWORDLESS` (email or SMS), or `UNKNOWN` for an account known only from a role or organization payload.
+
+**Shared user_ids.** The account id is the Auth0 `user_id`, with one exception. A database user's id is `auth0|<id>` and carries no connection, so two custom-database connections whose scripts return the same upstream id produce two different users with one `user_id`. Auth0 accepts this. Social and enterprise ids include the connection (`samlp|okta-workforce|riley`) and cannot collide this way. When it happens, both accounts are exported as `<user_id>@<connection>`, the `userId` column keeps the raw value, and a warning names them. Role and organization payloads carry only the `user_id`, so their assignments are attached to every account that holds it, and each account's description says so.
+
 ## Sample output
 
 **Fictional.** The files in [`examples/fictional-tenant`](examples/fictional-tenant) were generated from the mock tenant in this repository. They are not a customer export. The domain `tenant.example.auth0.test` does not exist.
@@ -246,7 +250,7 @@ Identity Governance's CSV application collector maps source columns onto collect
 
 | CSV column | IG collector attribute | Auth0 source |
 | --- | --- | --- |
-| `accountId` | Account ID | `user_id` |
+| `accountId` | Account ID | `user_id`, or `<user_id>@<connection>` when two connections share the `user_id` |
 | `name` | Name | Email, then username, then nickname, then `user_id` |
 | `displayName` | Extended: display name | `name`, or given name plus family name |
 | `description` | Description | Sign-in provider and connection |
@@ -258,6 +262,8 @@ Identity Governance's CSV application collector maps source columns onto collect
 | `status` | Extended: status | `ACTIVE` or `BLOCKED` |
 | `connection` | Extended | Primary identity connection |
 | `provider` | Extended | Primary identity provider |
+| `userId` | Extended | Raw Auth0 `user_id` |
+| `accountSource` | Extended | `DATABASE`, `SOCIAL`, `ENTERPRISE`, `PASSWORDLESS`, or `UNKNOWN` |
 | `identities` | Extended | JSON array of `{provider, connection, userId, isSocial}` |
 | `permissionId` | Permission ID | Stable id, for example `role:rol_billingadmin` or `scope:https://invoices.example.com::read:invoices` |
 | `name` (permission) | Name | Role name, scope, organization display name, application name |

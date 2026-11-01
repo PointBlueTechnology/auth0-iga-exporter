@@ -26,6 +26,11 @@ export async function exportTenant(config: ResolvedConfig, log: Logger): Promise
       }.`,
     );
   }
+  for (const shared of normalized.sharedUserIds) {
+    log.warn(
+      `user_id ${shared.userId} is held by users on more than one connection; exported as ${shared.accountIds.join(", ")}. Role and organization assignments on that user_id are attached to each.`,
+    );
+  }
   const written = await writeExport({
     directory: config.out,
     formats: config.formats,

@@ -28,10 +28,16 @@ import { exportAllUsers } from "./users-export.js";
 /** Auth0 refuses to page GET /users past 1,000 records. */
 const USER_LIST_CAP = 1000;
 
+/**
+ * Drop repeats of the same user (a list page can overlap the next). A user is its
+ * user_id plus its primary connection: two database connections can hand out the
+ * same user_id to different people, and both have to reach the review.
+ */
 function dedupeUsers(users: RawUser[]): RawUser[] {
   const seen = new Map<string, RawUser>();
   for (const user of users) {
-    if (!seen.has(user.userId)) seen.set(user.userId, user);
+    const key = `${user.userId}\0${user.identities[0]?.connection ?? ""}`;
+    if (!seen.has(key)) seen.set(key, user);
   }
   return [...seen.values()];
 }

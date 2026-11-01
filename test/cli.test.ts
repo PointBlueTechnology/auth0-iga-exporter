@@ -308,6 +308,42 @@ for (const usersSource of ["list", "export"]) {
   });
 }
 
+for (const usersSource of ["list", "export"]) {
+  test(`a user_id shared by two database connections keeps both accounts (${usersSource})`, { timeout: 30_000 }, async () => {
+    const fixture = fictionalTenant();
+    const twin = structuredClone(fixture.users.find((user) => user.user_id === "auth0|avery"));
+    assert.ok(twin);
+    twin.email = "avery.legacy@example.com";
+    twin.identities = [{ provider: "auth0", connection: "legacy-db", user_id: "avery", isSocial: false }];
+    fixture.users.push(twin);
+    const mock = await startMock({ fixture });
+    const out = await tempDir();
+    try {
+      const result = await runCli(
+        ["export", "--out", out.dir, "--format", "csv", "--users-source", usersSource, "--job-poll-ms", "10"],
+        credentialEnv(mock.baseUrl),
+      );
+      assert.equal(result.code, 0, result.stderr);
+      assert.match(result.stdout, /exported 4 accounts/);
+      assert.match(result.stderr, /user_id auth0\|avery is held by users on more than one connection/);
+      const accounts = parseCsv(await readFile(join(out.dir, "accounts.csv"), "utf8"));
+      const header = accounts[0] ?? [];
+      const ids = accounts.slice(1).map((row) => row[0]);
+      assert.ok(ids.includes("auth0|avery@legacy-db"));
+      assert.ok(ids.includes("auth0|avery@Username-Password-Authentication"));
+      const legacy = accounts.find((row) => row[0] === "auth0|avery@legacy-db") ?? [];
+      assert.equal(legacy[header.indexOf("userId")], "auth0|avery");
+      assert.equal(legacy[header.indexOf("accountSource")], "DATABASE");
+      const pairs = parseCsv(await readFile(join(out.dir, "assignments.csv"), "utf8")).map((row) => row.join("|"));
+      assert.ok(pairs.includes("auth0|avery@legacy-db|role:rol_billingadmin|DIRECT_ROLE"));
+      assert.ok(pairs.includes("auth0|avery@Username-Password-Authentication|role:rol_billingadmin|DIRECT_ROLE"));
+    } finally {
+      await mock.close();
+      await out.remove();
+    }
+  });
+}
+
 test("group attributes in user_metadata are refused", async () => {
   const result = await runCli(
     ["export", "--group-attributes", "user_metadata.groups"],
