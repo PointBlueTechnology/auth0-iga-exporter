@@ -12,7 +12,12 @@ jobs:
   export:
     runs-on: ubuntu-latest
     steps:
+      # The exporter itself, not the repository this workflow lives in.
+      # v0 follows the latest 0.x release; use an exact tag such as v0.2.0 to pin.
       - uses: actions/checkout@v4
+        with:
+          repository: PointBlueTechnology/auth0-iga-exporter
+          ref: v0
       - uses: actions/setup-node@v4
         with:
           node-version: 22

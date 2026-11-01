@@ -21,11 +21,13 @@ OpenText Identity Governance's own collectors are Java and run inside the IG app
 Requires Node.js 22 (or any current release that satisfies `engines` in `package.json`: `^20.19`, `^22.12`, or newer).
 
 ```bash
-git clone https://github.com/PointBlueTechnology/auth0-iga-exporter.git
+git clone --branch v0 https://github.com/PointBlueTechnology/auth0-iga-exporter.git
 cd auth0-iga-exporter
 npm ci
 npm run build
 ```
+
+`v0` is a tag that moves to each 0.x release, so this clones the latest one. Use `--branch v0.2.0` to pin an exact release, or leave `--branch` off for unreleased work on `main`. Releases are listed on the [releases page](https://github.com/PointBlueTechnology/auth0-iga-exporter/releases) and in [`CHANGELOG.md`](CHANGELOG.md).
 
 Create a machine-to-machine application and authorize it for the Auth0 Management API. In the dashboard: Applications → APIs → Auth0 Management API → Machine to Machine Applications → authorize the app, and select only the scopes in the next section.
 
@@ -313,7 +315,7 @@ docker run --rm \
 
 ## Schedule
 
-A weekly file drop is enough for a certification campaign. [`examples/github-action-scheduled-export.yml`](examples/github-action-scheduled-export.yml) is a GitHub Actions workflow you can copy into `.github/workflows/`. It is not registered in this repository, so it does not run here. Store `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` as Actions secrets. The workflow uploads `export-out` as an artifact.
+A weekly file drop is enough for a certification campaign. [`examples/github-action-scheduled-export.yml`](examples/github-action-scheduled-export.yml) is a GitHub Actions workflow you can copy into `.github/workflows/` of any repository. It checks out this exporter at the `v0` tag, so scheduled runs pick up 0.x releases; set `ref` to an exact tag such as `v0.2.0` to pin one. It is not registered in this repository, so it does not run here. Store `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` as Actions secrets. The workflow uploads `export-out` as an artifact.
 
 A Cloudflare Worker is a poor fit for 0.2. The export can run for minutes, write a directory of files, and download a gzip dump. A scheduled container or the GitHub Action above is the cheaper path. A Worker in front of an event stream is a later idea, once delta exports exist.
 
