@@ -2,7 +2,24 @@
   "name": "auth0-iga-exporter",
   "version": "0.1.0",
   "description": "Export Auth0 users, roles, organizations, and API permissions into files an IGA platform can certify.",
-  "license": "Apache-2.0",
+  "keywords": [
+    "auth0",
+    "identity-governance",
+    "iga",
+    "access-review",
+    "scim",
+    "opentext",
+    "ciam",
+    "iam"
+  ],
+  "homepage": "https://github.com/PointBlueTechnology/auth0-iga-exporter#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PointBlueTechnology/auth0-iga-exporter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PointBlueTechnology/auth0-iga-exporter/issues"
+  },
   "type": "module",
   "bin": {
     "auth0-iga-exporter": "./dist/cli.js"
@@ -33,5 +50,10 @@
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.2"
-  }
+  },
+  "author": {
+    "name": "Jerry Combs",
+    "url": "https://www.pointbluetech.com"
+  },
+  "license": "Apache-2.0"
 }
