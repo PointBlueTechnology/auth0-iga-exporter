@@ -1,6 +1,6 @@
 {
   "name": "auth0-iga-exporter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Export Auth0 users, roles, organizations, and API permissions into files an IGA platform can certify.",
   "keywords": [
     "auth0",

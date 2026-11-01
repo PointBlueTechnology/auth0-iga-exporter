@@ -8,7 +8,7 @@ Auth0 is often the system of record for workforce and customer logins, while acc
 - one JSON bundle with the same model plus a sanitized catalog
 - optional SCIM 2.0 Users and Groups, which SailPoint, Saviynt, and other IGA tools already know how to read
 
-Version 0.1 is a command-line tool. It does not write back to Auth0.
+Version 0.2 is a command-line tool. It does not write back to Auth0.
 
 ## Why TypeScript
 
@@ -171,7 +171,7 @@ Assignments are the review items:
 | `ORGANIZATION_ROLE` | The user holds that role inside that organization. The same tenant role in two orgs is two entitlements. |
 | `GROUP_MEMBER` | The user's identity provider asserted that group at the last sign-in. |
 
-Applications and APIs are catalog permissions with no account assignments. Auth0 does not have a human "member of this application" entitlement. Client grants (which machine clients may call which API) are not an end-user access review and are out of scope for 0.1.
+Applications and APIs are catalog permissions with no account assignments. Auth0 does not have a human "member of this application" entitlement. Client grants (which machine clients may call which API) are not an end-user access review and are out of scope for 0.2.
 
 The Auth0 Management API is a system API. It declares every tenant-administration scope, about 280 of them, and on a typical tenant no role grants any. By default its scopes become permissions only when a role grants them, so they don't bury the scopes a reviewer actually certifies. The full list stays in the `catalog` of `auth0-iga.json`. Pass `--include-system-scopes` (or set `includeSystemScopes: true`, or `AUTH0_INCLUDE_SYSTEM_SCOPES=true`) to emit them all.
 
@@ -274,7 +274,7 @@ Identity Governance's CSV application collector maps source columns onto collect
 | `accountId` + `permissionId` | Account-permission assignment | The pair IG certifies. `assignmentType` can be stored as an extended attribute or ignored |
 | `parentPermissionId` + `childPermissionId` | Permission hierarchy (permission holds permission) | `GRANTS` and `CONTAINS` |
 
-Suggested review scope: import `ROLE`, `ORGANIZATION`, `ORGANIZATION_ROLE`, and `GROUP` as the permissions people certify, and load `permission-hierarchy.csv` so a Billing Admin review shows `read:invoices` and `write:invoices` underneath it. Leave `APPLICATION` and `API` in the catalog if you want reviewers to see the resource model; they have no holders in 0.1.
+Suggested review scope: import `ROLE`, `ORGANIZATION`, `ORGANIZATION_ROLE`, and `GROUP` as the permissions people certify, and load `permission-hierarchy.csv` so a Billing Admin review shows `read:invoices` and `write:invoices` underneath it. Leave `APPLICATION` and `API` in the catalog if you want reviewers to see the resource model; they have no holders in 0.2.
 
 `idmAccountId` is the join to the identity publication. Email is the practical key when Auth0 and the identity source share it. It is not an Auth0 guarantee of uniqueness across social and database accounts.
 
@@ -315,7 +315,7 @@ docker run --rm \
 
 A weekly file drop is enough for a certification campaign. [`examples/github-action-scheduled-export.yml`](examples/github-action-scheduled-export.yml) is a GitHub Actions workflow you can copy into `.github/workflows/`. It is not registered in this repository, so it does not run here. Store `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` as Actions secrets. The workflow uploads `export-out` as an artifact.
 
-A Cloudflare Worker is a poor fit for 0.1. The export can run for minutes, write a directory of files, and download a gzip dump. A scheduled container or the GitHub Action above is the cheaper path. A Worker in front of an event stream is a later idea, once delta exports exist.
+A Cloudflare Worker is a poor fit for 0.2. The export can run for minutes, write a directory of files, and download a gzip dump. A scheduled container or the GitHub Action above is the cheaper path. A Worker in front of an event stream is a later idea, once delta exports exist.
 
 ## Development
 

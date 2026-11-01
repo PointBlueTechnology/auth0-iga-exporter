@@ -1,5 +1,6 @@
 import { ManagementClient } from "auth0";
 import type { ResolvedConfig } from "../config.js";
+import { VERSION } from "../version.js";
 
 export function rewriteManagementUrl(url: string, domain: string, baseUrl: string): string {
   const apiPrefix = `https://${domain}/api/v2`;
@@ -39,6 +40,6 @@ export function createManagementClient(config: ResolvedConfig): ManagementClient
     ...(config.baseUrl ? { fetch: createRewritingFetch(config.domain, config.baseUrl) } : {}),
     maxRetries: config.maxRetries,
     telemetry: false,
-    clientInfo: { name: "auth0-iga-exporter", version: "0.1.0" },
+    clientInfo: { name: "auth0-iga-exporter", version: VERSION },
   });
 }
