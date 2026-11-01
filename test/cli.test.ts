@@ -436,5 +436,5 @@ test("scopes and help commands", async () => {
   assert.equal(help.code, 0);
   assert.match(help.stdout, /--users-source/);
   const version = await runCli(["--version"], childEnv({}));
-  assert.equal(version.stdout.trim(), "0.1.0");
+  assert.equal(version.stdout.trim(), "0.2.0");
 });

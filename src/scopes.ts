@@ -1,5 +1,5 @@
 /**
- * Minimum read-only Management API scopes for a full v0.1 export.
+ * Minimum read-only Management API scopes for a full export.
  * Do not grant create, update, or delete scopes. Do not grant
  * read:user_idp_tokens — identity-provider tokens are not part of an access review
  * and are discarded if a payload contains them anyway.
