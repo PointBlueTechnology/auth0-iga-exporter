@@ -143,6 +143,71 @@ test("normalize marks admin role holders privileged and keeps blocked status", (
   );
 });
 
+test("normalize keeps only role-granted Management API scopes unless asked for all", () => {
+  const management = "https://tenant.example.auth0.test/api/v2/";
+  const snapshot: RawSnapshot = {
+    domain: "tenant.example.auth0.test",
+    applicationName: "Auth0 (tenant.example.auth0.test)",
+    usersSource: "list",
+    collectedAt: "2026-04-30T00:00:00.000Z",
+    users: [
+      { userId: "auth0|avery", email: "avery.chen@example.com", blocked: false, identities: [] },
+      { userId: "auth0|nomail", blocked: false, identities: [] },
+    ],
+    roles: [
+      {
+        id: "rol_support",
+        name: "Support",
+        description: "",
+        permissions: [{ permissionName: "read:users", resourceServerIdentifier: management }],
+        userIds: [],
+      },
+    ],
+    organizations: [],
+    applications: [],
+    resourceServers: [
+      {
+        id: "rs_management",
+        name: "Auth0 Management API",
+        identifier: management,
+        isSystem: true,
+        scopes: [
+          { value: "read:users", description: "Read Users" },
+          { value: "delete:users", description: "Delete Users" },
+        ],
+      },
+      {
+        id: "rs_invoices",
+        name: "Invoices API",
+        identifier: "https://invoices.example.com",
+        isSystem: false,
+        scopes: [{ value: "read:invoices", description: "Read invoices" }],
+      },
+    ],
+    connections: [],
+  };
+  const scopes = (options?: { includeSystemScopes?: boolean }) =>
+    normalize(snapshot, options)
+      .permissions.filter((permission) => permission.type === "API_SCOPE")
+      .map((permission) => permission.permissionId);
+
+  assert.deepEqual(scopes(), [
+    "scope:https://invoices.example.com::read:invoices",
+    `scope:${management}::read:users`,
+  ]);
+  assert.equal(scopes({ includeSystemScopes: true }).includes(`scope:${management}::delete:users`), true);
+
+  const normalized = normalize(snapshot);
+  assert.equal(
+    normalized.hierarchy.some(
+      (link) => link.parentPermissionId === `api:${management}` && link.childPermissionId === `scope:${management}::read:users`,
+    ),
+    true,
+  );
+  const verified = Object.fromEntries(normalized.accounts.map((account) => [account.accountId, account.emailVerified]));
+  assert.deepEqual(verified, { "auth0|avery": false, "auth0|nomail": null });
+});
+
 test("config requires a bare domain and prefers the environment over a file", async () => {
   await assert.rejects(
     () => loadConfig({}, { AUTH0_DOMAIN: "https://tenant.example.auth0.com" }),
@@ -160,6 +225,19 @@ test("config requires a bare domain and prefers the environment over a file", as
   assert.equal(config.clientId, "from-env");
   assert.equal(config.out, "from-flag");
   assert.equal(config.perPage, 10);
+  assert.equal(config.includeSystemScopes, false);
+  const parsed = parseArgv(["export", "--include-system-scopes"]);
+  assert.equal(parsed.kind === "export" && parsed.flags.includeSystemScopes, true);
+  const fromEnv = await loadConfig(
+    {},
+    {
+      AUTH0_DOMAIN: "tenant.example.auth0.test",
+      AUTH0_CLIENT_ID: "from-env",
+      AUTH0_CLIENT_SECRET: "env-secret-value",
+      AUTH0_INCLUDE_SYSTEM_SCOPES: "true",
+    },
+  );
+  assert.equal(fromEnv.includeSystemScopes, true);
   assert.deepEqual(parseArgv(["scopes"]), { kind: "scopes" });
   assert.equal(parseArgv(["--help"]).kind, "help");
   assert.throws(() => parseArgv(["export", "--per-page", "0"]), ConfigError);

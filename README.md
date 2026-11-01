@@ -140,6 +140,10 @@ Assignments are the review items:
 
 Applications and APIs are catalog permissions with no account assignments. Auth0 does not have a human "member of this application" entitlement. Client grants (which machine clients may call which API) are not an end-user access review and are out of scope for 0.1.
 
+The Auth0 Management API is a system API. It declares every tenant-administration scope, about 280 of them, and on a typical tenant no role grants any. By default its scopes become permissions only when a role grants them, so they don't bury the scopes a reviewer actually certifies. The full list stays in the `catalog` of `auth0-iga.json`. Pass `--include-system-scopes` (or set `includeSystemScopes: true`, or `AUTH0_INCLUDE_SYSTEM_SCOPES=true`) to emit them all.
+
+`emailVerified` is `false` when the account has an email and Auth0 omits `email_verified`, which custom-database users often do. Auth0 treats a missing value as unverified. It is empty only when the account has no email.
+
 `privileged` is a review hint computed by this tool. Auth0 has no privileged attribute. It is true when the account holds a role or organization role whose name contains admin, administrator, owner, or superuser as a word. "Billing Admin" counts. "Invoice Viewer" does not.
 
 Cells that start with `=`, `+`, `-`, `@`, or a tab are prefixed with a single quote so a spreadsheet does not treat them as formulas.

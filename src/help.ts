@@ -35,6 +35,8 @@ Options
   --max-retries <n>            Retries for 408, 429, and 5xx (default: 5).
                                The Auth0 SDK waits on Retry-After, then backs off.
   --job-poll-ms <n>            Delay between bulk-export job polls (default: 1000)
+  --include-system-scopes      Emit every Management API scope as a permission.
+                               By default only the ones a role grants are emitted.
   --base-url <url>             Send token and Management API calls to this origin.
                                Test hook. The client secret is sent there.
 

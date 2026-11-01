@@ -15,7 +15,7 @@ export async function exportTenant(config: ResolvedConfig, log: Logger): Promise
   }
   const client = createManagementClient(config);
   const snapshot = await collectSnapshot(client, config, log);
-  const normalized = normalize(snapshot);
+  const normalized = normalize(snapshot, { includeSystemScopes: config.includeSystemScopes });
   const written = await writeExport({
     directory: config.out,
     formats: config.formats,

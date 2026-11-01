@@ -20,6 +20,7 @@ export interface ResolvedConfig {
   maxRetries: number;
   jobPollMs: number;
   jobPollAttempts: number;
+  includeSystemScopes: boolean;
 }
 
 interface FileConfig {
@@ -36,6 +37,7 @@ interface FileConfig {
   applicationName?: string;
   maxRetries?: number;
   jobPollMs?: number;
+  includeSystemScopes?: boolean;
 }
 
 const FILE_KEYS = new Set([
@@ -52,6 +54,7 @@ const FILE_KEYS = new Set([
   "applicationName",
   "maxRetries",
   "jobPollMs",
+  "includeSystemScopes",
 ]);
 
 export interface ExportFlags {
@@ -65,6 +68,7 @@ export interface ExportFlags {
   baseUrl?: string;
   jobPollMs?: number;
   maxRetries?: number;
+  includeSystemScopes?: boolean;
 }
 
 export type ParsedArgs =
@@ -101,6 +105,7 @@ export function parseArgv(argv: string[]): ParsedArgs {
         "base-url": { type: "string" },
         "job-poll-ms": { type: "string" },
         "max-retries": { type: "string" },
+        "include-system-scopes": { type: "boolean" },
       },
     });
   } catch (err) {
@@ -131,6 +136,7 @@ export function parseArgv(argv: string[]): ParsedArgs {
       baseUrl: text(values["base-url"]),
       jobPollMs: integerOption(text(values["job-poll-ms"]), "--job-poll-ms", 0, 60_000),
       maxRetries: integerOption(text(values["max-retries"]), "--max-retries", 0, 10),
+      includeSystemScopes: values["include-system-scopes"] === true ? true : undefined,
     },
   };
 }
@@ -224,6 +230,19 @@ function numberFromFile(value: number | undefined, field: string, min: number, m
   return value;
 }
 
+function parseBoolean(value: string | undefined, name: string): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new ConfigError(`${name} must be true or false`);
+}
+
+function booleanFromFile(value: unknown, field: string): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean") throw new ConfigError(`${field} must be true or false`);
+  return value;
+}
+
 export async function loadConfig(flags: ExportFlags, env: NodeJS.ProcessEnv = process.env): Promise<ResolvedConfig> {
   const configPath = flags.config ?? envString(env, "AUTH0_CONFIG");
   const file = configPath ? await readConfigFile(configPath) : {};
@@ -270,5 +289,10 @@ export async function loadConfig(flags: ExportFlags, env: NodeJS.ProcessEnv = pr
     maxRetries: flags.maxRetries ?? numberFromFile(file.maxRetries, "maxRetries", 0, 10) ?? 5,
     jobPollMs: flags.jobPollMs ?? numberFromFile(file.jobPollMs, "jobPollMs", 0, 60_000) ?? 1000,
     jobPollAttempts: 60,
+    includeSystemScopes:
+      flags.includeSystemScopes ??
+      parseBoolean(envString(env, "AUTH0_INCLUDE_SYSTEM_SCOPES"), "AUTH0_INCLUDE_SYSTEM_SCOPES") ??
+      booleanFromFile(file.includeSystemScopes, "includeSystemScopes") ??
+      false,
   };
 }

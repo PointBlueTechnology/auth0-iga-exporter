@@ -72,7 +72,9 @@ function toAccount(user: RawUser): IgAccount {
     createdAt: user.createdAt ?? "",
     updatedAt: user.updatedAt ?? "",
     loginsCount: user.loginsCount ?? null,
-    emailVerified: user.emailVerified ?? null,
+    // Auth0 omits email_verified on some users (custom-database imports, for one)
+    // and treats that as unverified. Empty means there is no email to verify.
+    emailVerified: user.emailVerified ?? (user.email ? false : null),
     givenName: user.givenName ?? "",
     familyName: user.familyName ?? "",
   };
@@ -95,8 +97,15 @@ function ensureUser(users: Map<string, RawUser>, userId: string, hint?: { email?
  * can see what a role grants without certifying every scope as its own assignment.
  * Auth0 has no human user-to-application membership, so applications and APIs are
  * catalog permissions with no account assignments.
+ *
+ * The Management API is a system API that declares every tenant-administration
+ * scope (about 280). Unless includeSystemScopes is set, its scopes become
+ * permissions only when a role grants them. The catalog keeps the full list.
  */
-export function normalize(snapshot: RawSnapshot): NormalizedExport {
+export function normalize(
+  snapshot: RawSnapshot,
+  options: { includeSystemScopes?: boolean } = {},
+): NormalizedExport {
   const users = new Map<string, RawUser>();
   for (const user of snapshot.users) users.set(user.userId, user);
 
@@ -118,6 +127,13 @@ export function normalize(snapshot: RawSnapshot): NormalizedExport {
 
   const applicationName = snapshot.applicationName;
   const scopeGrantsByRole = new Map<string, string[]>();
+  const grantedScopeIds = new Set(
+    snapshot.roles.flatMap((role) =>
+      role.permissions.map((permission) =>
+        scopePermissionId(permission.resourceServerIdentifier ?? "", permission.permissionName),
+      ),
+    ),
+  );
 
   for (const api of snapshot.resourceServers) {
     const apiId = apiPermissionId(api.identifier);
@@ -131,6 +147,7 @@ export function normalize(snapshot: RawSnapshot): NormalizedExport {
     });
     for (const scope of api.scopes) {
       const scopeId = scopePermissionId(api.identifier, scope.value);
+      if (api.isSystem && !options.includeSystemScopes && !grantedScopeIds.has(scopeId)) continue;
       addPermission({
         permissionId: scopeId,
         name: scope.value,
