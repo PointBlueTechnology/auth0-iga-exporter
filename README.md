@@ -98,6 +98,38 @@ Do not grant `create:*`, `update:*`, `delete:*`, `read:client_keys`, or `read:us
 | Applications | `GET /api/v2/clients` | Name, client id, app type, description. |
 | APIs and scopes | `GET /api/v2/resource-servers` | |
 | Connections | `GET /api/v2/connections` | Catalog only. `options` is dropped because it often holds an IdP client secret. |
+| SSO groups | User attributes named by `--group-attributes` (default `groups,group_ids`) | Groups an enterprise connection asserted at sign-in. See below. |
+
+### SSO groups
+
+Auth0 has no group object. An enterprise connection writes the groups the identity provider sent onto the user profile, and the attribute name depends on the connection:
+
+| Connection | Attribute |
+| --- | --- |
+| Native Azure AD / Entra ID (with "Get user groups") | `groups`, group names |
+| Azure AD over SAML or OIDC | `group_ids`, object ids |
+| Generic SAML | Whatever the connection's mapping names. Map the IdP's group claim to `groups`. |
+| Google Workspace (with "Get user groups") | `groups` |
+| Okta Workforce | None. The connection does not pass groups; use a SAML connection to Okta instead. |
+
+Each group value becomes a `GROUP` permission, scoped to the user's connection (`group:okta-workforce::Billing Admins`), with a `GROUP_MEMBER` assignment. Two IdPs that both send "Admins" are two entitlements.
+
+`--group-attributes` takes root attributes and `app_metadata` paths, for tenants where an Action copies groups into `app_metadata` (`--group-attributes groups,app_metadata.groups`). `user_metadata` is refused because the user can edit it. `none` turns group capture off. Only the named attributes are read; the rest of `app_metadata` is never written.
+
+Auth0 does not turn groups into roles. That is usually a post-login Action, and its mapping lives in code. `--group-role-map` takes the same mapping as data, so the hierarchy shows which role a group is meant to confer:
+
+```json
+[
+  { "connection": "okta-workforce", "group": "Billing Admins", "role": "Billing Admin" },
+  { "group": "Finance", "role": "rol_viewer" }
+]
+```
+
+`role` is a role id or name. Without `connection`, the entry applies to the group on every connection. Each match adds a `GRANTS` link from the group to the role. It does not add a role assignment: if the Action really assigns the role through the Management API, that shows up as `DIRECT_ROLE` on its own. An entry that matches no exported group or no role is reported on stderr.
+
+The values are what the IdP sent at a sign-in, not a live directory read. With the connection's default `set_user_root_attributes` (`on_each_login`), Auth0 rewrites them at every sign-in, so a user removed from a group in the IdP still shows the group until they sign in again. With `on_first_login`, they are never refreshed. For a review that must reflect the directory today, certify the groups in the IdP itself.
+
+Tested live with a SAML connection: the groups the IdP asserted landed on the user as a root `groups` array, and the list and bulk-export paths produced the same `GROUP` permissions, assignments, and mapped `GRANTS` link.
 
 Pagination uses the SDK's page iterator. `--per-page` (1–100, default 50) is the offset page size and the checkpoint `take`.
 
@@ -120,12 +152,12 @@ Files are written mode `0600` where the platform honors it. Treat the directory 
 | File | Format | Contents |
 | --- | --- | --- |
 | `accounts.csv` | CSV | One row per Auth0 user. |
-| `permissions.csv` | CSV | Roles, org membership, org roles, applications, APIs, and API scopes. |
+| `permissions.csv` | CSV | Roles, org membership, org roles, SSO groups, applications, APIs, and API scopes. |
 | `assignments.csv` | CSV | Account-to-permission rows a reviewer certifies. |
-| `permission-hierarchy.csv` | CSV | A role or org role **grants** an API scope. An organization **contains** an org role. An API **contains** its scopes. |
+| `permission-hierarchy.csv` | CSV | A role or org role **grants** an API scope. A mapped SSO group **grants** a role. An organization **contains** an org role. An API **contains** its scopes. |
 | `auth0-iga.json` | JSON | The same four collections, plus a sanitized catalog. Schema `pointblue.auth0-iga-exporter/v0.1`. |
 | `scim-users.json` | SCIM 2.0 ListResponse | Users. `active` is false when the Auth0 user is blocked. |
-| `scim-groups.json` | SCIM 2.0 ListResponse | One group per role, organization, and organization role. API scopes stay in the permission hierarchy under the role that grants them. |
+| `scim-groups.json` | SCIM 2.0 ListResponse | One group per role, organization, organization role, and SSO group. API scopes stay in the permission hierarchy under the role that grants them. |
 | `manifest.json` | JSON | Counts, domain, users source, file list. No secrets. |
 
 `--format` accepts `csv`, `json`, `scim`, or `all`. The default is `csv,json`.
@@ -137,6 +169,7 @@ Assignments are the review items:
 | `DIRECT_ROLE` | The user is assigned the Auth0 role directly. |
 | `ORGANIZATION_MEMBER` | The user is a member of the organization. |
 | `ORGANIZATION_ROLE` | The user holds that role inside that organization. The same tenant role in two orgs is two entitlements. |
+| `GROUP_MEMBER` | The user's identity provider asserted that group at the last sign-in. |
 
 Applications and APIs are catalog permissions with no account assignments. Auth0 does not have a human "member of this application" entitlement. Client grants (which machine clients may call which API) are not an end-user access review and are out of scope for 0.1.
 
@@ -144,7 +177,7 @@ The Auth0 Management API is a system API. It declares every tenant-administratio
 
 `emailVerified` is `false` when the account has an email and Auth0 omits `email_verified`, which custom-database users often do. Auth0 treats a missing value as unverified. It is empty only when the account has no email.
 
-`privileged` is a review hint computed by this tool. Auth0 has no privileged attribute. It is true when the account holds a role or organization role whose name contains admin, administrator, owner, or superuser as a word. "Billing Admin" counts. "Invoice Viewer" does not.
+`privileged` is a review hint computed by this tool. Auth0 has no privileged attribute. It is true when the account holds a role, organization role, or SSO group whose name contains admin, administrator, owner, or superuser (or their plurals) as a word, or a group that `--group-role-map` maps to such a role. "Billing Admin" and "Billing Admins" count. "Invoice Viewer" does not.
 
 Cells that start with `=`, `+`, `-`, `@`, or a tab are prefixed with a single quote so a spreadsheet does not treat them as formulas.
 
@@ -229,13 +262,13 @@ Identity Governance's CSV application collector maps source columns onto collect
 | `permissionId` | Permission ID | Stable id, for example `role:rol_billingadmin` or `scope:https://invoices.example.com::read:invoices` |
 | `name` (permission) | Name | Role name, scope, organization display name, application name |
 | `description` (permission) | Description | Auth0 description when it has one |
-| `type` | Extended: permission type | `ROLE`, `ORGANIZATION_ROLE`, `ORGANIZATION`, `API_SCOPE`, `API`, `APPLICATION` |
+| `type` | Extended: permission type | `ROLE`, `ORGANIZATION_ROLE`, `ORGANIZATION`, `GROUP`, `API_SCOPE`, `API`, `APPLICATION` |
 | `value` | Extended | Native Auth0 id or scope value |
 | `applicationName` | Application name | The tenant, repeated on each row so files can be concatenated |
 | `accountId` + `permissionId` | Account-permission assignment | The pair IG certifies. `assignmentType` can be stored as an extended attribute or ignored |
 | `parentPermissionId` + `childPermissionId` | Permission hierarchy (permission holds permission) | `GRANTS` and `CONTAINS` |
 
-Suggested review scope: import `ROLE`, `ORGANIZATION`, and `ORGANIZATION_ROLE` as the permissions people certify, and load `permission-hierarchy.csv` so a Billing Admin review shows `read:invoices` and `write:invoices` underneath it. Leave `APPLICATION` and `API` in the catalog if you want reviewers to see the resource model; they have no holders in 0.1.
+Suggested review scope: import `ROLE`, `ORGANIZATION`, `ORGANIZATION_ROLE`, and `GROUP` as the permissions people certify, and load `permission-hierarchy.csv` so a Billing Admin review shows `read:invoices` and `write:invoices` underneath it. Leave `APPLICATION` and `API` in the catalog if you want reviewers to see the resource model; they have no holders in 0.1.
 
 `idmAccountId` is the join to the identity publication. Email is the practical key when Auth0 and the identity source share it. It is not an Auth0 guarantee of uniqueness across social and database accounts.
 
@@ -243,7 +276,7 @@ Suggested review scope: import `ROLE`, `ORGANIZATION`, and `ORGANIZATION_ROLE` a
 
 The same three CSVs are the usual account, entitlement, and account-entitlement feeds:
 
-- SailPoint account schema: native identity = `accountId`, display name = `displayName`, disabled = `disabled`. Entitlements are the permission rows whose `type` is `ROLE`, `ORGANIZATION`, or `ORGANIZATION_ROLE`. `scim-groups.json` is the same set as SCIM Group resources.
+- SailPoint account schema: native identity = `accountId`, display name = `displayName`, disabled = `disabled`. Entitlements are the permission rows whose `type` is `ROLE`, `ORGANIZATION`, `ORGANIZATION_ROLE`, or `GROUP`. `scim-groups.json` is the same set as SCIM Group resources.
 - Saviynt file import: `accounts.csv` corresponds to the account file, `permissions.csv` to entitlements, `assignments.csv` to account-entitlements. Rename or map columns to the tenant's import template. This repository does not ship a Saviynt XML connector.
 
 ## Security

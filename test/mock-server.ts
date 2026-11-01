@@ -29,6 +29,8 @@ export interface MockHandle {
   baseUrl: string;
   requests: RecordedRequest[];
   tokenRequests: number;
+  /** Body of the last POST /api/v2/jobs/users-exports. */
+  exportRequest?: unknown;
   close: () => Promise<void>;
 }
 
@@ -242,7 +244,7 @@ export function startMock(options: MockOptions = {}): Promise<MockHandle> {
     }
 
     if (req.method === "POST" && path === "/api/v2/jobs/users-exports") {
-      await readBody(req);
+      handle.exportRequest = JSON.parse(await readBody(req)) as unknown;
       jobCreated = true;
       sendJson(res, 200, {
         id: "job_fictional_export",

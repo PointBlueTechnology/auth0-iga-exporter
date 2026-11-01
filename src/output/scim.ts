@@ -64,7 +64,9 @@ function membersFor(permission: IgPermission, assignments: IgAssignment[], accou
         ? "ORGANIZATION_MEMBER"
         : permission.type === "ORGANIZATION_ROLE"
           ? "ORGANIZATION_ROLE"
-          : undefined;
+          : permission.type === "GROUP"
+            ? "GROUP_MEMBER"
+            : undefined;
   if (!assignmentType) return [];
   return assignments
     .filter(
@@ -104,7 +106,7 @@ export interface ScimDocuments {
   groups: ScimList;
 }
 
-const GROUP_TYPES = new Set(["ROLE", "ORGANIZATION", "ORGANIZATION_ROLE"]);
+const GROUP_TYPES = new Set(["ROLE", "ORGANIZATION", "ORGANIZATION_ROLE", "GROUP"]);
 
 export function toScim(normalized: NormalizedExport): ScimDocuments {
   const accounts = new Map(normalized.accounts.map((account) => [account.accountId, account]));

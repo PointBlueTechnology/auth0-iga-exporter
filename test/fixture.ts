@@ -13,6 +13,29 @@ export const DECOY_EMAIL = "decoy.list@example.com";
 
 export const APPLICATION_NAME = "Fictional Northwind tenant";
 
+/** A user from a SAML enterprise connection that asserted groups at sign-in. */
+export const SAML_USER = {
+  user_id: "samlp|okta-workforce|riley",
+  email: "riley.park@example.com",
+  email_verified: true,
+  name: "Riley Park",
+  created_at: "2025-02-10T09:00:00.000Z",
+  updated_at: "2026-04-29T09:00:00.000Z",
+  last_login: "2026-04-29T09:00:00.000Z",
+  logins_count: 7,
+  blocked: false,
+  groups: ["Billing Admins", "Engineering"],
+  app_metadata: { support_tier: "gold", teams: ["payments"] },
+  identities: [
+    {
+      provider: "samlp",
+      connection: "okta-workforce",
+      user_id: "riley",
+      isSocial: false,
+    },
+  ],
+};
+
 const users = [
   {
     user_id: "auth0|avery",
@@ -81,7 +104,7 @@ const users = [
 ];
 
 export interface Fixture {
-  users: typeof users;
+  users: Array<(typeof users)[number] | typeof SAML_USER>;
   roles: Array<{ id: string; name: string; description: string }>;
   rolePermissions: Record<
     string,

@@ -37,6 +37,11 @@ Options
   --job-poll-ms <n>            Delay between bulk-export job polls (default: 1000)
   --include-system-scopes      Emit every Management API scope as a permission.
                                By default only the ones a role grants are emitted.
+  --group-attributes <list>    User attributes that hold groups, comma-separated.
+                               Root attributes or app_metadata paths
+                               (default: groups,group_ids). none turns it off.
+  --group-role-map <file>      JSON array of { connection?, group, role } that
+                               links an IdP group to the role it should grant
   --base-url <url>             Send token and Management API calls to this origin.
                                Test hook. The client secret is sent there.
 

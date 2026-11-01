@@ -4,6 +4,7 @@ import type {
   RawConnection,
   RawIdentity,
   RawUser,
+  RawUserGroup,
 } from "../model/types.js";
 
 /**
@@ -36,6 +37,8 @@ export interface Auth0UserRecord {
   logins_count?: number | string;
   blocked?: boolean | string;
   identities?: Auth0IdentityRecord[] | string;
+  /** Root attributes from an enterprise connection (`groups`, `group_ids`) and `app_metadata`. */
+  [attribute: string]: unknown;
 }
 
 export interface Auth0ClientRecord {
@@ -116,8 +119,39 @@ function parseIdentities(value: Auth0UserRecord["identities"]): RawIdentity[] {
   return identities;
 }
 
-/** Map a Management API user, dropping identity-provider tokens and profile blobs. */
-export function toRawUser(input: Auth0UserRecord): RawUser | undefined {
+function valueAt(record: Record<string, unknown>, path: string): unknown {
+  let current: unknown = record;
+  for (const segment of path.split(".")) {
+    if (!current || typeof current !== "object" || Array.isArray(current)) return undefined;
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+}
+
+/**
+ * Read group values from the configured attribute paths. A value can be an array or a
+ * single string; strings and numbers count, anything else (objects, nested arrays) is skipped.
+ */
+function readGroups(input: Auth0UserRecord, attributes: readonly string[]): RawUserGroup[] {
+  const groups: RawUserGroup[] = [];
+  const seen = new Set<string>();
+  for (const attribute of attributes) {
+    const raw = valueAt(input, attribute);
+    for (const item of Array.isArray(raw) ? raw : [raw]) {
+      const value = typeof item === "number" ? String(item) : asString(item);
+      if (!value || seen.has(`${attribute}\0${value}`)) continue;
+      seen.add(`${attribute}\0${value}`);
+      groups.push({ attribute, value });
+    }
+  }
+  return groups;
+}
+
+/**
+ * Map a Management API user, dropping identity-provider tokens and profile blobs.
+ * Only the group attributes named in `groupAttributes` are read beyond the fixed profile fields.
+ */
+export function toRawUser(input: Auth0UserRecord, groupAttributes: readonly string[] = []): RawUser | undefined {
   const userId = asString(input.user_id);
   if (!userId) return undefined;
   const user: RawUser = {
@@ -147,6 +181,8 @@ export function toRawUser(input: Auth0UserRecord): RawUser | undefined {
   if (updatedAt) user.updatedAt = updatedAt;
   if (lastLogin) user.lastLogin = lastLogin;
   if (loginsCount !== undefined) user.loginsCount = loginsCount;
+  const groups = readGroups(input, groupAttributes);
+  if (groups.length > 0) user.groups = groups;
   return user;
 }
 

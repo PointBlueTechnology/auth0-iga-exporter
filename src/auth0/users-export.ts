@@ -27,7 +27,13 @@ function isGzip(body: Buffer): boolean {
   return body.length >= 2 && body[0] === 0x1f && body[1] === 0x8b;
 }
 
-export function parseUserExport(body: Buffer): RawUser[] {
+/** Export fields for a run: the fixed profile fields plus the root key of each group attribute. */
+export function exportFields(groupAttributes: readonly string[]): string[] {
+  const roots = groupAttributes.map((path) => path.split(".")[0] ?? path);
+  return [...new Set<string>([...EXPORT_FIELDS, ...roots])];
+}
+
+export function parseUserExport(body: Buffer, groupAttributes: readonly string[] = []): RawUser[] {
   const uncompressed = isGzip(body) ? gunzipSync(body) : body;
   const text = uncompressed.toString("utf8").trim();
   if (!text) return [];
@@ -40,7 +46,7 @@ export function parseUserExport(body: Buffer): RawUser[] {
     }
     if (!Array.isArray(parsed)) throw new ExportError("user export file is not a JSON array or NDJSON");
     return parsed.flatMap((row) => {
-      const user = row && typeof row === "object" ? toRawUser(row as Auth0UserRecord) : undefined;
+      const user = row && typeof row === "object" ? toRawUser(row as Auth0UserRecord, groupAttributes) : undefined;
       return user ? [user] : [];
     });
   }
@@ -56,7 +62,7 @@ export function parseUserExport(body: Buffer): RawUser[] {
       throw new ExportError(`user export line ${index + 1} is not valid JSON`);
     }
     if (!parsed || typeof parsed !== "object") continue;
-    const user = toRawUser(parsed as Auth0UserRecord);
+    const user = toRawUser(parsed as Auth0UserRecord, groupAttributes);
     if (user) users.push(user);
   }
   return users;
@@ -85,11 +91,11 @@ function sleep(ms: number): Promise<void> {
  */
 export async function exportAllUsers(
   client: ManagementClient,
-  options: { pollMs: number; maxPolls: number },
+  options: { pollMs: number; maxPolls: number; groupAttributes: readonly string[] },
 ): Promise<RawUser[]> {
   const created = await client.jobs.usersExports.create({
     format: "json",
-    fields: EXPORT_FIELDS.map((name) => ({ name })),
+    fields: exportFields(options.groupAttributes).map((name) => ({ name })),
   });
   let latest = created;
   for (let attempt = 0; attempt < options.maxPolls; attempt += 1) {
@@ -107,5 +113,5 @@ export async function exportAllUsers(
   if (!latest.location) {
     throw new ExportError(`user export job ${created.id} completed without a download location`);
   }
-  return parseUserExport(await downloadExport(latest.location));
+  return parseUserExport(await downloadExport(latest.location), options.groupAttributes);
 }

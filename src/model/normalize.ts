@@ -1,12 +1,14 @@
 import {
   apiPermissionId,
   applicationPermissionId,
+  groupPermissionId,
   organizationPermissionId,
   organizationRolePermissionId,
   rolePermissionId,
   scopePermissionId,
 } from "./ids.js";
 import type {
+  GroupRoleMapping,
   IgAccount,
   IgAssignment,
   IgHierarchy,
@@ -17,7 +19,7 @@ import type {
   RawUser,
 } from "./types.js";
 
-const PRIVILEGED_NAME = /\b(admin|administrator|owner|superuser)\b/i;
+const PRIVILEGED_NAME = /\b(admins?|administrators?|owners?|superusers?)\b/i;
 
 function compare(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -101,10 +103,16 @@ function ensureUser(users: Map<string, RawUser>, userId: string, hint?: { email?
  * The Management API is a system API that declares every tenant-administration
  * scope (about 280). Unless includeSystemScopes is set, its scopes become
  * permissions only when a role grants them. The catalog keeps the full list.
+ *
+ * Groups come from configured user attributes, usually `groups` asserted by an
+ * enterprise connection at sign-in. Each one is a GROUP permission scoped to the
+ * user's connection, with a GROUP_MEMBER assignment. Auth0 does not turn groups into
+ * roles by itself, so a group-to-role map (when given) only adds GRANTS links: the
+ * reviewer sees which role a group is meant to confer, not a role assignment.
  */
 export function normalize(
   snapshot: RawSnapshot,
-  options: { includeSystemScopes?: boolean } = {},
+  options: { includeSystemScopes?: boolean; groupRoleMap?: GroupRoleMapping[] } = {},
 ): NormalizedExport {
   const users = new Map<string, RawUser>();
   for (const user of snapshot.users) users.set(user.userId, user);
@@ -251,13 +259,60 @@ export function normalize(
     });
   }
 
+  // Groups by connection, so a map entry can find "Billing Admins" on one IdP or on all of them.
+  const groupsByValue = new Map<string, { connection: string; permissionId: string }[]>();
+  for (const user of users.values()) {
+    const connection = firstIdentity(user).connection || "unknown";
+    for (const group of user.groups ?? []) {
+      const permissionId = groupPermissionId(connection, group.value);
+      if (!permissions.has(permissionId)) {
+        addPermission({
+          permissionId,
+          name: group.value,
+          description: `Group asserted by connection ${connection} (attribute ${group.attribute})`,
+          type: "GROUP",
+          value: group.value,
+          applicationName,
+        });
+        const known = groupsByValue.get(group.value) ?? [];
+        known.push({ connection, permissionId });
+        groupsByValue.set(group.value, known);
+      }
+      addAssignment({ accountId: user.userId, permissionId, assignmentType: "GROUP_MEMBER" });
+    }
+  }
+
+  const unmatchedMappings: GroupRoleMapping[] = [];
+  const grantedRolesByGroup = new Map<string, string[]>();
+  for (const mapping of options.groupRoleMap ?? []) {
+    const roles = snapshot.roles.filter((role) => role.id === mapping.role || role.name === mapping.role);
+    const groups = (groupsByValue.get(mapping.group) ?? []).filter(
+      (group) => !mapping.connection || group.connection === mapping.connection,
+    );
+    if (roles.length === 0 || groups.length === 0) {
+      unmatchedMappings.push(mapping);
+      continue;
+    }
+    for (const group of groups) {
+      for (const role of roles) {
+        const roleId = rolePermissionId(role.id);
+        addLink({ parentPermissionId: group.permissionId, childPermissionId: roleId, relation: "GRANTS" });
+        grantedRolesByGroup.set(group.permissionId, [...(grantedRolesByGroup.get(group.permissionId) ?? []), roleId]);
+      }
+    }
+  }
+
   const accounts = [...users.values()].map(toAccount);
   const privilegedIds = new Set(
     [...permissions.values()]
-      .filter((permission) => permission.type === "ROLE" || permission.type === "ORGANIZATION_ROLE")
+      .filter((permission) => ["ROLE", "ORGANIZATION_ROLE", "GROUP"].includes(permission.type))
       .filter((permission) => PRIVILEGED_NAME.test(permission.name))
       .map((permission) => permission.permissionId),
   );
+  // A group mapped to a privileged role is privileged too, whatever it is called.
+  for (const [groupId, roleIds] of grantedRolesByGroup) {
+    if (roleIds.some((roleId) => privilegedIds.has(roleId))) privilegedIds.add(groupId);
+  }
   for (const account of accounts) {
     account.privileged = [...assignments.values()].some(
       (assignment) => assignment.accountId === account.accountId && privilegedIds.has(assignment.permissionId),
@@ -288,6 +343,7 @@ export function normalize(
     permissions: permissionList,
     assignments: assignmentList,
     hierarchy: hierarchyList,
+    unmatchedMappings,
   };
 }
 

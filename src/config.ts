@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { ConfigError } from "./errors.js";
+import type { GroupRoleMapping } from "./model/types.js";
 import type { OutputFormat } from "./output/write.js";
 
 export type UsersSourceMode = "auto" | "list" | "export";
@@ -21,7 +23,12 @@ export interface ResolvedConfig {
   jobPollMs: number;
   jobPollAttempts: number;
   includeSystemScopes: boolean;
+  groupAttributes: string[];
+  groupRoleMap: GroupRoleMapping[];
 }
+
+/** Root attributes enterprise connections use for groups: native Azure AD and SAML send `groups`, Azure AD over SAML or OIDC sends `group_ids`. */
+export const DEFAULT_GROUP_ATTRIBUTES = ["groups", "group_ids"];
 
 interface FileConfig {
   domain?: string;
@@ -38,6 +45,8 @@ interface FileConfig {
   maxRetries?: number;
   jobPollMs?: number;
   includeSystemScopes?: boolean;
+  groupAttributes?: string | string[];
+  groupRoleMap?: string;
 }
 
 const FILE_KEYS = new Set([
@@ -55,6 +64,8 @@ const FILE_KEYS = new Set([
   "maxRetries",
   "jobPollMs",
   "includeSystemScopes",
+  "groupAttributes",
+  "groupRoleMap",
 ]);
 
 export interface ExportFlags {
@@ -69,6 +80,8 @@ export interface ExportFlags {
   jobPollMs?: number;
   maxRetries?: number;
   includeSystemScopes?: boolean;
+  groupAttributes?: string;
+  groupRoleMap?: string;
 }
 
 export type ParsedArgs =
@@ -106,6 +119,8 @@ export function parseArgv(argv: string[]): ParsedArgs {
         "job-poll-ms": { type: "string" },
         "max-retries": { type: "string" },
         "include-system-scopes": { type: "boolean" },
+        "group-attributes": { type: "string" },
+        "group-role-map": { type: "string" },
       },
     });
   } catch (err) {
@@ -137,6 +152,8 @@ export function parseArgv(argv: string[]): ParsedArgs {
       jobPollMs: integerOption(text(values["job-poll-ms"]), "--job-poll-ms", 0, 60_000),
       maxRetries: integerOption(text(values["max-retries"]), "--max-retries", 0, 10),
       includeSystemScopes: values["include-system-scopes"] === true ? true : undefined,
+      groupAttributes: text(values["group-attributes"]),
+      groupRoleMap: text(values["group-role-map"]),
     },
   };
 }
@@ -243,6 +260,62 @@ function booleanFromFile(value: unknown, field: string): boolean | undefined {
   return value;
 }
 
+const ATTRIBUTE_SEGMENT = /^[A-Za-z0-9_$-]+$/;
+
+/**
+ * Group attribute paths are root attributes (`groups`) or `app_metadata` paths
+ * (`app_metadata.roles`). `user_metadata` is refused: the user can edit it, so it is
+ * not evidence of access. `none` turns group capture off.
+ */
+export function parseGroupAttributes(value: string | string[] | undefined): string[] | undefined {
+  if (value === undefined) return undefined;
+  const parts = (Array.isArray(value) ? value.join(",") : value)
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 1 && parts[0] === "none") return [];
+  for (const path of parts) {
+    const segments = path.split(".");
+    if (!segments.every((segment) => ATTRIBUTE_SEGMENT.test(segment))) {
+      throw new ConfigError(`group attribute ${path} is not a dotted attribute path`);
+    }
+    if (segments[0] === "user_metadata") {
+      throw new ConfigError(`group attribute ${path} is in user_metadata, which the user can edit; use app_metadata or a root attribute`);
+    }
+    if (segments[0] === "identities") {
+      throw new ConfigError(`group attribute ${path} is not supported; identity profile data is never read`);
+    }
+  }
+  return [...new Set(parts)];
+}
+
+async function readGroupRoleMap(path: string): Promise<GroupRoleMapping[]> {
+  let text: string;
+  try {
+    text = await readFile(path, "utf8");
+  } catch {
+    throw new ConfigError(`could not read group-role map: ${path}`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text) as unknown;
+  } catch {
+    throw new ConfigError(`group-role map is not valid JSON: ${path}`);
+  }
+  if (!Array.isArray(parsed)) throw new ConfigError("group-role map must be a JSON array of { connection?, group, role }");
+  return parsed.map((entry, index) => {
+    const record = entry && typeof entry === "object" && !Array.isArray(entry) ? (entry as Record<string, unknown>) : {};
+    const unknown = Object.keys(record).filter((key) => !["connection", "group", "role"].includes(key));
+    const field = (key: string) => (typeof record[key] === "string" ? (record[key] as string).trim() : "");
+    if (unknown.length > 0 || !field("group") || !field("role") || ("connection" in record && !field("connection"))) {
+      throw new ConfigError(`group-role map entry ${index + 1} must be { "connection"?: string, "group": string, "role": string }`);
+    }
+    const mapping: GroupRoleMapping = { group: field("group"), role: field("role") };
+    if (field("connection")) mapping.connection = field("connection");
+    return mapping;
+  });
+}
+
 export async function loadConfig(flags: ExportFlags, env: NodeJS.ProcessEnv = process.env): Promise<ResolvedConfig> {
   const configPath = flags.config ?? envString(env, "AUTH0_CONFIG");
   const file = configPath ? await readConfigFile(configPath) : {};
@@ -255,6 +328,11 @@ export async function loadConfig(flags: ExportFlags, env: NodeJS.ProcessEnv = pr
   if (!clientSecret) throw new ConfigError("AUTH0_CLIENT_SECRET is required (environment variable or config file)");
 
   const audience = envString(env, "AUTH0_AUDIENCE") ?? file.audience;
+  // A map path in the config file is relative to that file.
+  const groupRoleMapPath =
+    flags.groupRoleMap ??
+    envString(env, "AUTH0_GROUP_ROLE_MAP") ??
+    (file.groupRoleMap && configPath ? resolve(dirname(configPath), file.groupRoleMap) : undefined);
   const baseUrlValue = flags.baseUrl ?? envString(env, "AUTH0_BASE_URL") ?? file.baseUrl;
   const usersSource =
     parseUsersSource(flags.usersSource) ??
@@ -294,5 +372,11 @@ export async function loadConfig(flags: ExportFlags, env: NodeJS.ProcessEnv = pr
       parseBoolean(envString(env, "AUTH0_INCLUDE_SYSTEM_SCOPES"), "AUTH0_INCLUDE_SYSTEM_SCOPES") ??
       booleanFromFile(file.includeSystemScopes, "includeSystemScopes") ??
       false,
+    groupAttributes:
+      parseGroupAttributes(flags.groupAttributes) ??
+      parseGroupAttributes(envString(env, "AUTH0_GROUP_ATTRIBUTES")) ??
+      parseGroupAttributes(file.groupAttributes) ??
+      DEFAULT_GROUP_ATTRIBUTES,
+    groupRoleMap: groupRoleMapPath ? await readGroupRoleMap(groupRoleMapPath) : [],
   };
 }

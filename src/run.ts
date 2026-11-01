@@ -15,7 +15,17 @@ export async function exportTenant(config: ResolvedConfig, log: Logger): Promise
   }
   const client = createManagementClient(config);
   const snapshot = await collectSnapshot(client, config, log);
-  const normalized = normalize(snapshot, { includeSystemScopes: config.includeSystemScopes });
+  const normalized = normalize(snapshot, {
+    includeSystemScopes: config.includeSystemScopes,
+    groupRoleMap: config.groupRoleMap,
+  });
+  for (const mapping of normalized.unmatchedMappings) {
+    log.warn(
+      `Group-role map entry ${JSON.stringify(mapping)} matched no ${
+        snapshot.roles.some((role) => role.id === mapping.role || role.name === mapping.role) ? "exported group" : "role"
+      }.`,
+    );
+  }
   const written = await writeExport({
     directory: config.out,
     formats: config.formats,

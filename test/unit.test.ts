@@ -208,6 +208,41 @@ test("normalize keeps only role-granted Management API scopes unless asked for a
   assert.deepEqual(verified, { "auth0|avery": false, "auth0|nomail": null });
 });
 
+test("a group mapped to a privileged role is privileged whatever its name", () => {
+  const snapshot: RawSnapshot = {
+    domain: "tenant.example.auth0.test",
+    applicationName: "Auth0 (tenant.example.auth0.test)",
+    usersSource: "list",
+    collectedAt: "2026-04-30T00:00:00.000Z",
+    users: [
+      {
+        userId: "samlp|okta-workforce|riley",
+        blocked: false,
+        identities: [{ provider: "samlp", connection: "okta-workforce", userId: "riley" }],
+        groups: [{ attribute: "groups", value: "Finance" }],
+      },
+      {
+        userId: "samlp|azure|kai",
+        blocked: false,
+        identities: [{ provider: "samlp", connection: "azure", userId: "kai" }],
+        groups: [{ attribute: "groups", value: "Finance" }],
+      },
+    ],
+    roles: [{ id: "rol_billingadmin", name: "Billing Admin", description: "", permissions: [], userIds: [] }],
+    organizations: [],
+    applications: [],
+    resourceServers: [],
+    connections: [],
+  };
+  const normalized = normalize(snapshot, {
+    groupRoleMap: [{ connection: "okta-workforce", group: "Finance", role: "Billing Admin" }],
+  });
+  const privileged = Object.fromEntries(normalized.accounts.map((account) => [account.accountId, account.privileged]));
+  assert.deepEqual(privileged, { "samlp|azure|kai": false, "samlp|okta-workforce|riley": true });
+  assert.deepEqual(normalized.unmatchedMappings, []);
+  assert.equal(normalized.permissions.filter((permission) => permission.type === "GROUP").length, 2);
+});
+
 test("config requires a bare domain and prefers the environment over a file", async () => {
   await assert.rejects(
     () => loadConfig({}, { AUTH0_DOMAIN: "https://tenant.example.auth0.com" }),
