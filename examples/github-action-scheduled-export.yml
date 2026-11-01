@@ -1,0 +1,31 @@
+# Example only. This file is not inside .github/workflows, so GitHub will not run it.
+# Copy it to .github/workflows/scheduled-export.yml and uncomment the schedule
+# when you want a weekly file drop for an Identity Governance collector.
+name: scheduled-export-example
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "0 6 * * 1"
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node dist/cli.js export --out export-out --format all
+        env:
+          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+          AUTH0_CLIENT_ID: ${{ secrets.AUTH0_CLIENT_ID }}
+          AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auth0-iga-export
+          path: export-out
+          retention-days: 7

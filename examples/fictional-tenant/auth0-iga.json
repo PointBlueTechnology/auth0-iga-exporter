@@ -1,0 +1,404 @@
+{
+  "schema": "pointblue.auth0-iga-exporter/v0.1",
+  "generator": "auth0-iga-exporter 0.1.0",
+  "meta": {
+    "exportedAt": "2026-10-31T20:03:52.387Z",
+    "domain": "tenant.example.auth0.test",
+    "applicationName": "Fictional Northwind tenant",
+    "usersSource": "list"
+  },
+  "application": {
+    "id": "auth0:tenant.example.auth0.test",
+    "name": "Fictional Northwind tenant",
+    "type": "Auth0",
+    "description": "Auth0 tenant exported for identity governance access reviews"
+  },
+  "accounts": [
+    {
+      "accountId": "auth0|avery",
+      "name": "avery.chen@example.com",
+      "displayName": "Chen, Avery",
+      "description": "Sign-in provider auth0, connection Username-Password-Authentication",
+      "email": "avery.chen@example.com",
+      "username": "avery.chen",
+      "idmAccountId": "avery.chen@example.com",
+      "disabled": false,
+      "lastLogin": "2026-04-30T15:04:00.000Z",
+      "privileged": true,
+      "status": "ACTIVE",
+      "connection": "Username-Password-Authentication",
+      "provider": "auth0",
+      "identities": [
+        {
+          "provider": "auth0",
+          "connection": "Username-Password-Authentication",
+          "userId": "avery",
+          "isSocial": false
+        }
+      ],
+      "createdAt": "2024-01-15T10:00:00.000Z",
+      "updatedAt": "2026-04-01T12:00:00.000Z",
+      "loginsCount": 42,
+      "emailVerified": true,
+      "givenName": "Avery",
+      "familyName": "Chen"
+    },
+    {
+      "accountId": "auth0|jordan",
+      "name": "jordan.blake@example.com",
+      "displayName": "Jordan Blake",
+      "description": "Sign-in provider auth0, connection Username-Password-Authentication",
+      "email": "jordan.blake@example.com",
+      "username": "",
+      "idmAccountId": "jordan.blake@example.com",
+      "disabled": true,
+      "lastLogin": "2025-11-02T08:00:00.000Z",
+      "privileged": false,
+      "status": "BLOCKED",
+      "connection": "Username-Password-Authentication",
+      "provider": "auth0",
+      "identities": [
+        {
+          "provider": "auth0",
+          "connection": "Username-Password-Authentication",
+          "userId": "jordan",
+          "isSocial": false
+        }
+      ],
+      "createdAt": "2023-06-01T08:00:00.000Z",
+      "updatedAt": "2025-11-02T08:00:00.000Z",
+      "loginsCount": 3,
+      "emailVerified": true,
+      "givenName": "Jordan",
+      "familyName": "Blake"
+    },
+    {
+      "accountId": "google-oauth2|samir",
+      "name": "samir.okonkwo@example.com",
+      "displayName": "Samir Okonkwo",
+      "description": "Sign-in provider google-oauth2, connection google-oauth2",
+      "email": "samir.okonkwo@example.com",
+      "username": "",
+      "idmAccountId": "samir.okonkwo@example.com",
+      "disabled": false,
+      "lastLogin": "",
+      "privileged": false,
+      "status": "ACTIVE",
+      "connection": "google-oauth2",
+      "provider": "google-oauth2",
+      "identities": [
+        {
+          "provider": "google-oauth2",
+          "connection": "google-oauth2",
+          "userId": "samir",
+          "isSocial": true
+        }
+      ],
+      "createdAt": "2025-02-11T16:30:00.000Z",
+      "updatedAt": "2026-03-20T09:12:00.000Z",
+      "loginsCount": null,
+      "emailVerified": true,
+      "givenName": "Samir",
+      "familyName": "Okonkwo"
+    }
+  ],
+  "permissions": [
+    {
+      "permissionId": "api:https://directory.example.com",
+      "name": "Partner Directory",
+      "description": "Auth0 API (resource server)",
+      "type": "API",
+      "value": "https://directory.example.com",
+      "applicationName": "Fictional Northwind tenant"
+    },
+    {
+      "permissionId": "api:https://invoices.example.com",
+      "name": "Invoices API",
+      "description": "Auth0 API (resource server)",
+      "type": "API",
+      "value": "https://invoices.example.com",
+      "applicationName": "Fictional Northwind tenant"
+    },
+    {
+      "permissionId": "application:m2mNightlySync",
+      "name": "Nightly Sync",
+      "description": "Machine-to-machine sync",
+      "type": "APPLICATION",
+      "value": "m2mNightlySync",
+      "applicationName": "Fictional Northwind tenant"
+    },
+    {
+      "permissionId": "application:spaNorthwindPortal",
+      "name": "Northwind Portal",
+      "description": "Employee portal",
+      "type": "APPLICATION",
+      "value": "spaNorthwindPortal",
+      "applicationName": "Fictional Northwind tenant"
+    },
+    {
+      "permissionId": "organization-role:org_northwind:rol_viewer",
+      "name": "Invoice Viewer @ Northwind Traders",
+      "description": "Role Invoice Viewer in organization Northwind Traders",
+      "type": "ORGANIZATION_ROLE",
+      "value": "rol_viewer",
+      "applicationName": "Fictional Northwind tenant"
+    },
+    {
+      "permissionId": "organization:org_contoso",
+      "name": "Contoso Ltd",
+      "description": "Auth0 organization contoso",
+      "type": "ORGANIZATION",
+      "value": "org_contoso",
+      "applicationName": "Fictional Northwind tenant"
+    },
+    {
+      "permissionId": "organization:org_northwind",
+      "name": "Northwind Traders",
+      "description": "Auth0 organization northwind",
+      "type": "ORGANIZATION",
+      "value": "org_northwind",
+      "applicationName": "Fictional Northwind tenant"
+    },
+    {
+      "permissionId": "role:rol_billingadmin",
+      "name": "Billing Admin",
+      "description": "Manage invoices",
+      "type": "ROLE",
+      "value": "rol_billingadmin",
+      "applicationName": "Fictional Northwind tenant"
+    },
+    {
+      "permissionId": "role:rol_viewer",
+      "name": "Invoice Viewer",
+      "description": "Read invoices",
+      "type": "ROLE",
+      "value": "rol_viewer",
+      "applicationName": "Fictional Northwind tenant"
+    },
+    {
+      "permissionId": "scope:https://directory.example.com::read:partners",
+      "name": "read:partners",
+      "description": "Read partner records",
+      "type": "API_SCOPE",
+      "value": "read:partners",
+      "applicationName": "Fictional Northwind tenant"
+    },
+    {
+      "permissionId": "scope:https://invoices.example.com::read:invoices",
+      "name": "read:invoices",
+      "description": "Read invoices",
+      "type": "API_SCOPE",
+      "value": "read:invoices",
+      "applicationName": "Fictional Northwind tenant"
+    },
+    {
+      "permissionId": "scope:https://invoices.example.com::write:invoices",
+      "name": "write:invoices",
+      "description": "Create and update invoices",
+      "type": "API_SCOPE",
+      "value": "write:invoices",
+      "applicationName": "Fictional Northwind tenant"
+    }
+  ],
+  "assignments": [
+    {
+      "accountId": "auth0|avery",
+      "permissionId": "organization-role:org_northwind:rol_viewer",
+      "assignmentType": "ORGANIZATION_ROLE"
+    },
+    {
+      "accountId": "auth0|avery",
+      "permissionId": "organization:org_northwind",
+      "assignmentType": "ORGANIZATION_MEMBER"
+    },
+    {
+      "accountId": "auth0|avery",
+      "permissionId": "role:rol_billingadmin",
+      "assignmentType": "DIRECT_ROLE"
+    },
+    {
+      "accountId": "auth0|jordan",
+      "permissionId": "role:rol_viewer",
+      "assignmentType": "DIRECT_ROLE"
+    },
+    {
+      "accountId": "google-oauth2|samir",
+      "permissionId": "organization:org_northwind",
+      "assignmentType": "ORGANIZATION_MEMBER"
+    }
+  ],
+  "permissionHierarchy": [
+    {
+      "parentPermissionId": "api:https://directory.example.com",
+      "childPermissionId": "scope:https://directory.example.com::read:partners",
+      "relation": "CONTAINS"
+    },
+    {
+      "parentPermissionId": "api:https://invoices.example.com",
+      "childPermissionId": "scope:https://invoices.example.com::read:invoices",
+      "relation": "CONTAINS"
+    },
+    {
+      "parentPermissionId": "api:https://invoices.example.com",
+      "childPermissionId": "scope:https://invoices.example.com::write:invoices",
+      "relation": "CONTAINS"
+    },
+    {
+      "parentPermissionId": "organization-role:org_northwind:rol_viewer",
+      "childPermissionId": "scope:https://invoices.example.com::read:invoices",
+      "relation": "GRANTS"
+    },
+    {
+      "parentPermissionId": "organization:org_northwind",
+      "childPermissionId": "organization-role:org_northwind:rol_viewer",
+      "relation": "CONTAINS"
+    },
+    {
+      "parentPermissionId": "role:rol_billingadmin",
+      "childPermissionId": "scope:https://invoices.example.com::read:invoices",
+      "relation": "GRANTS"
+    },
+    {
+      "parentPermissionId": "role:rol_billingadmin",
+      "childPermissionId": "scope:https://invoices.example.com::write:invoices",
+      "relation": "GRANTS"
+    },
+    {
+      "parentPermissionId": "role:rol_viewer",
+      "childPermissionId": "scope:https://invoices.example.com::read:invoices",
+      "relation": "GRANTS"
+    }
+  ],
+  "catalog": {
+    "roles": [
+      {
+        "id": "rol_billingadmin",
+        "name": "Billing Admin",
+        "description": "Manage invoices",
+        "permissions": [
+          {
+            "permissionName": "read:invoices",
+            "resourceServerIdentifier": "https://invoices.example.com",
+            "resourceServerName": "Invoices API",
+            "description": "Read invoices"
+          },
+          {
+            "permissionName": "write:invoices",
+            "resourceServerIdentifier": "https://invoices.example.com",
+            "resourceServerName": "Invoices API",
+            "description": "Create and update invoices"
+          }
+        ],
+        "userIds": [
+          "auth0|avery"
+        ]
+      },
+      {
+        "id": "rol_viewer",
+        "name": "Invoice Viewer",
+        "description": "Read invoices",
+        "permissions": [
+          {
+            "permissionName": "read:invoices",
+            "resourceServerIdentifier": "https://invoices.example.com",
+            "resourceServerName": "Invoices API",
+            "description": "Read invoices"
+          }
+        ],
+        "userIds": [
+          "auth0|jordan"
+        ]
+      }
+    ],
+    "organizations": [
+      {
+        "id": "org_northwind",
+        "name": "northwind",
+        "displayName": "Northwind Traders",
+        "members": [
+          {
+            "userId": "auth0|avery",
+            "email": "avery.chen@example.com",
+            "name": "Chen, Avery",
+            "roles": [
+              {
+                "id": "rol_viewer",
+                "name": "Invoice Viewer"
+              }
+            ]
+          },
+          {
+            "userId": "google-oauth2|samir",
+            "email": "samir.okonkwo@example.com",
+            "name": "Samir Okonkwo",
+            "roles": []
+          }
+        ]
+      },
+      {
+        "id": "org_contoso",
+        "name": "contoso",
+        "displayName": "Contoso Ltd",
+        "members": []
+      }
+    ],
+    "applications": [
+      {
+        "clientId": "spaNorthwindPortal",
+        "name": "Northwind Portal",
+        "appType": "spa",
+        "description": "Employee portal"
+      },
+      {
+        "clientId": "m2mNightlySync",
+        "name": "Nightly Sync",
+        "appType": "non_interactive",
+        "description": "Machine-to-machine sync"
+      }
+    ],
+    "resourceServers": [
+      {
+        "id": "rs_invoices",
+        "name": "Invoices API",
+        "identifier": "https://invoices.example.com",
+        "isSystem": false,
+        "scopes": [
+          {
+            "value": "read:invoices",
+            "description": "Read invoices"
+          },
+          {
+            "value": "write:invoices",
+            "description": "Create and update invoices"
+          }
+        ]
+      },
+      {
+        "id": "rs_directory",
+        "name": "Partner Directory",
+        "identifier": "https://directory.example.com",
+        "isSystem": false,
+        "scopes": [
+          {
+            "value": "read:partners",
+            "description": "Read partner records"
+          }
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "id": "con_DbUsers00000001",
+        "name": "Username-Password-Authentication",
+        "strategy": "auth0",
+        "displayName": "Database"
+      },
+      {
+        "id": "con_Google000000001",
+        "name": "google-oauth2",
+        "strategy": "google-oauth2",
+        "displayName": "Google"
+      }
+    ]
+  }
+}

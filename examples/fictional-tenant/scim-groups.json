@@ -1,0 +1,124 @@
+{
+  "schemas": [
+    "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+  ],
+  "totalResults": 5,
+  "startIndex": 1,
+  "itemsPerPage": 5,
+  "Resources": [
+    {
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group",
+        "urn:ietf:params:scim:schemas:extension:auth0:2.0:Group"
+      ],
+      "id": "organization-role:org_northwind:rol_viewer",
+      "displayName": "Invoice Viewer @ Northwind Traders",
+      "members": [
+        {
+          "value": "auth0|avery",
+          "display": "Chen, Avery",
+          "type": "User"
+        }
+      ],
+      "meta": {
+        "resourceType": "Group"
+      },
+      "urn:ietf:params:scim:schemas:extension:auth0:2.0:Group": {
+        "type": "ORGANIZATION_ROLE",
+        "value": "rol_viewer",
+        "description": "Role Invoice Viewer in organization Northwind Traders"
+      }
+    },
+    {
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group",
+        "urn:ietf:params:scim:schemas:extension:auth0:2.0:Group"
+      ],
+      "id": "organization:org_contoso",
+      "displayName": "Contoso Ltd",
+      "members": [],
+      "meta": {
+        "resourceType": "Group"
+      },
+      "urn:ietf:params:scim:schemas:extension:auth0:2.0:Group": {
+        "type": "ORGANIZATION",
+        "value": "org_contoso",
+        "description": "Auth0 organization contoso"
+      }
+    },
+    {
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group",
+        "urn:ietf:params:scim:schemas:extension:auth0:2.0:Group"
+      ],
+      "id": "organization:org_northwind",
+      "displayName": "Northwind Traders",
+      "members": [
+        {
+          "value": "auth0|avery",
+          "display": "Chen, Avery",
+          "type": "User"
+        },
+        {
+          "value": "google-oauth2|samir",
+          "display": "Samir Okonkwo",
+          "type": "User"
+        }
+      ],
+      "meta": {
+        "resourceType": "Group"
+      },
+      "urn:ietf:params:scim:schemas:extension:auth0:2.0:Group": {
+        "type": "ORGANIZATION",
+        "value": "org_northwind",
+        "description": "Auth0 organization northwind"
+      }
+    },
+    {
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group",
+        "urn:ietf:params:scim:schemas:extension:auth0:2.0:Group"
+      ],
+      "id": "role:rol_billingadmin",
+      "displayName": "Billing Admin",
+      "members": [
+        {
+          "value": "auth0|avery",
+          "display": "Chen, Avery",
+          "type": "User"
+        }
+      ],
+      "meta": {
+        "resourceType": "Group"
+      },
+      "urn:ietf:params:scim:schemas:extension:auth0:2.0:Group": {
+        "type": "ROLE",
+        "value": "rol_billingadmin",
+        "description": "Manage invoices"
+      }
+    },
+    {
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group",
+        "urn:ietf:params:scim:schemas:extension:auth0:2.0:Group"
+      ],
+      "id": "role:rol_viewer",
+      "displayName": "Invoice Viewer",
+      "members": [
+        {
+          "value": "auth0|jordan",
+          "display": "Jordan Blake",
+          "type": "User"
+        }
+      ],
+      "meta": {
+        "resourceType": "Group"
+      },
+      "urn:ietf:params:scim:schemas:extension:auth0:2.0:Group": {
+        "type": "ROLE",
+        "value": "rol_viewer",
+        "description": "Read invoices"
+      }
+    }
+  ]
+}

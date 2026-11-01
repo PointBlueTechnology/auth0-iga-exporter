@@ -1,0 +1,37 @@
+{
+  "name": "auth0-iga-exporter",
+  "version": "0.1.0",
+  "description": "Export Auth0 users, roles, organizations, and API permissions into files an IGA platform can certify.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "auth0-iga-exporter": "./dist/cli.js"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "tsx src/cli.ts",
+    "lint": "eslint .",
+    "test": "node --import tsx --test test/*.test.ts",
+    "generate-sample": "tsx scripts/generate-fictional-sample.ts"
+  },
+  "dependencies": {
+    "auth0": "7.6.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^22.19.0",
+    "eslint": "^9.39.1",
+    "globals": "^16.4.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2"
+  }
+}

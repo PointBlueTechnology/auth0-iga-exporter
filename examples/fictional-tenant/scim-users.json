@@ -1,0 +1,139 @@
+{
+  "schemas": [
+    "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+  ],
+  "totalResults": 3,
+  "startIndex": 1,
+  "itemsPerPage": 3,
+  "Resources": [
+    {
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:auth0:2.0:User"
+      ],
+      "id": "auth0|avery",
+      "externalId": "auth0|avery",
+      "userName": "avery.chen@example.com",
+      "displayName": "Chen, Avery",
+      "active": true,
+      "meta": {
+        "resourceType": "User",
+        "created": "2024-01-15T10:00:00.000Z",
+        "lastModified": "2026-04-01T12:00:00.000Z"
+      },
+      "name": {
+        "formatted": "Chen, Avery",
+        "givenName": "Avery",
+        "familyName": "Chen"
+      },
+      "emails": [
+        {
+          "value": "avery.chen@example.com",
+          "type": "work",
+          "primary": true
+        }
+      ],
+      "urn:ietf:params:scim:schemas:extension:auth0:2.0:User": {
+        "connection": "Username-Password-Authentication",
+        "provider": "auth0",
+        "lastLogin": "2026-04-30T15:04:00.000Z",
+        "loginsCount": 42,
+        "blocked": false,
+        "identities": [
+          {
+            "provider": "auth0",
+            "connection": "Username-Password-Authentication",
+            "userId": "avery",
+            "isSocial": false
+          }
+        ]
+      }
+    },
+    {
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:auth0:2.0:User"
+      ],
+      "id": "auth0|jordan",
+      "externalId": "auth0|jordan",
+      "userName": "jordan.blake@example.com",
+      "displayName": "Jordan Blake",
+      "active": false,
+      "meta": {
+        "resourceType": "User",
+        "created": "2023-06-01T08:00:00.000Z",
+        "lastModified": "2025-11-02T08:00:00.000Z"
+      },
+      "name": {
+        "formatted": "Jordan Blake",
+        "givenName": "Jordan",
+        "familyName": "Blake"
+      },
+      "emails": [
+        {
+          "value": "jordan.blake@example.com",
+          "type": "work",
+          "primary": true
+        }
+      ],
+      "urn:ietf:params:scim:schemas:extension:auth0:2.0:User": {
+        "connection": "Username-Password-Authentication",
+        "provider": "auth0",
+        "lastLogin": "2025-11-02T08:00:00.000Z",
+        "loginsCount": 3,
+        "blocked": true,
+        "identities": [
+          {
+            "provider": "auth0",
+            "connection": "Username-Password-Authentication",
+            "userId": "jordan",
+            "isSocial": false
+          }
+        ]
+      }
+    },
+    {
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:auth0:2.0:User"
+      ],
+      "id": "google-oauth2|samir",
+      "externalId": "google-oauth2|samir",
+      "userName": "samir.okonkwo@example.com",
+      "displayName": "Samir Okonkwo",
+      "active": true,
+      "meta": {
+        "resourceType": "User",
+        "created": "2025-02-11T16:30:00.000Z",
+        "lastModified": "2026-03-20T09:12:00.000Z"
+      },
+      "name": {
+        "formatted": "Samir Okonkwo",
+        "givenName": "Samir",
+        "familyName": "Okonkwo"
+      },
+      "emails": [
+        {
+          "value": "samir.okonkwo@example.com",
+          "type": "work",
+          "primary": true
+        }
+      ],
+      "urn:ietf:params:scim:schemas:extension:auth0:2.0:User": {
+        "connection": "google-oauth2",
+        "provider": "google-oauth2",
+        "lastLogin": "",
+        "loginsCount": null,
+        "blocked": false,
+        "identities": [
+          {
+            "provider": "google-oauth2",
+            "connection": "google-oauth2",
+            "userId": "samir",
+            "isSocial": true
+          }
+        ]
+      }
+    }
+  ]
+}

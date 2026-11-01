@@ -1,0 +1,28 @@
+{
+  "schema": "pointblue.auth0-iga-exporter/v0.1",
+  "generator": "auth0-iga-exporter 0.1.0",
+  "exportedAt": "2026-10-31T20:03:52.387Z",
+  "domain": "tenant.example.auth0.test",
+  "applicationName": "Fictional Northwind tenant",
+  "usersSource": "list",
+  "formats": [
+    "csv",
+    "json",
+    "scim"
+  ],
+  "counts": {
+    "accounts": 3,
+    "permissions": 12,
+    "assignments": 5,
+    "permissionHierarchy": 8
+  },
+  "files": [
+    "accounts.csv",
+    "permissions.csv",
+    "assignments.csv",
+    "permission-hierarchy.csv",
+    "auth0-iga.json",
+    "scim-users.json",
+    "scim-groups.json"
+  ]
+}
