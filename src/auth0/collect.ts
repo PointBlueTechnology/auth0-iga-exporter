@@ -28,19 +28,30 @@ import { exportAllUsers } from "./users-export.js";
 /** Auth0 refuses to page GET /users past 1,000 records. */
 const USER_LIST_CAP = 1000;
 
+/**
+ * Drop repeats of the same user (a list page can overlap the next). A user is its
+ * user_id plus its primary connection: two database connections can hand out the
+ * same user_id to different people, and both have to reach the review.
+ */
 function dedupeUsers(users: RawUser[]): RawUser[] {
   const seen = new Map<string, RawUser>();
   for (const user of users) {
-    if (!seen.has(user.userId)) seen.set(user.userId, user);
+    const key = `${user.userId}\0${user.identities[0]?.connection ?? ""}`;
+    if (!seen.has(key)) seen.set(key, user);
   }
   return [...seen.values()];
 }
 
-async function listUsers(client: ManagementClient, perPage: number, log: Logger): Promise<RawUser[]> {
+async function listUsers(
+  client: ManagementClient,
+  perPage: number,
+  groupAttributes: readonly string[],
+  log: Logger,
+): Promise<RawUser[]> {
   const page = await client.users.list({ page: 0, per_page: perPage, include_totals: true });
   const users: RawUser[] = [];
   for await (const user of page) {
-    const raw = toRawUser(user as Auth0UserRecord);
+    const raw = toRawUser(user as Auth0UserRecord, groupAttributes);
     if (raw) users.push(raw);
     if (users.length >= USER_LIST_CAP) {
       log.warn(
@@ -60,13 +71,17 @@ async function collectUsers(
   if (config.usersSource === "export") {
     log.info("collecting users with the bulk export job");
     const users = dedupeUsers(
-      await exportAllUsers(client, { pollMs: config.jobPollMs, maxPolls: config.jobPollAttempts }),
+      await exportAllUsers(client, {
+        pollMs: config.jobPollMs,
+        maxPolls: config.jobPollAttempts,
+        groupAttributes: config.groupAttributes,
+      }),
     );
     return { users, source: "export" };
   }
   if (config.usersSource === "list") {
     log.info("collecting users with GET /api/v2/users");
-    return { users: await listUsers(client, config.perPage, log), source: "list" };
+    return { users: await listUsers(client, config.perPage, config.groupAttributes, log), source: "list" };
   }
 
   const probe = await client.users.list({ page: 0, per_page: 1, include_totals: true });
@@ -76,12 +91,16 @@ async function collectUsers(
       `reported user total ${total} reached the export threshold (${config.exportThreshold}); using the bulk export job`,
     );
     const users = dedupeUsers(
-      await exportAllUsers(client, { pollMs: config.jobPollMs, maxPolls: config.jobPollAttempts }),
+      await exportAllUsers(client, {
+        pollMs: config.jobPollMs,
+        maxPolls: config.jobPollAttempts,
+        groupAttributes: config.groupAttributes,
+      }),
     );
     return { users, source: "export" };
   }
   log.info("collecting users with GET /api/v2/users");
-  return { users: await listUsers(client, config.perPage, log), source: "list" };
+  return { users: await listUsers(client, config.perPage, config.groupAttributes, log), source: "list" };
 }
 
 async function collectRoles(client: ManagementClient, perPage: number): Promise<RawRole[]> {

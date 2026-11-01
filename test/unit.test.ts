@@ -92,6 +92,8 @@ test("csv quoting, formula neutralization, and round trip", () => {
       emailVerified: true,
       givenName: "Avery",
       familyName: "Chen",
+      userId: "auth0|avery",
+      accountSource: "DATABASE",
     },
   ]);
   const rows = parseCsv(csv);
@@ -143,6 +145,177 @@ test("normalize marks admin role holders privileged and keeps blocked status", (
   );
 });
 
+test("normalize keeps only role-granted Management API scopes unless asked for all", () => {
+  const management = "https://tenant.example.auth0.test/api/v2/";
+  const snapshot: RawSnapshot = {
+    domain: "tenant.example.auth0.test",
+    applicationName: "Auth0 (tenant.example.auth0.test)",
+    usersSource: "list",
+    collectedAt: "2026-04-30T00:00:00.000Z",
+    users: [
+      { userId: "auth0|avery", email: "avery.chen@example.com", blocked: false, identities: [] },
+      { userId: "auth0|nomail", blocked: false, identities: [] },
+    ],
+    roles: [
+      {
+        id: "rol_support",
+        name: "Support",
+        description: "",
+        permissions: [{ permissionName: "read:users", resourceServerIdentifier: management }],
+        userIds: [],
+      },
+    ],
+    organizations: [],
+    applications: [],
+    resourceServers: [
+      {
+        id: "rs_management",
+        name: "Auth0 Management API",
+        identifier: management,
+        isSystem: true,
+        scopes: [
+          { value: "read:users", description: "Read Users" },
+          { value: "delete:users", description: "Delete Users" },
+        ],
+      },
+      {
+        id: "rs_invoices",
+        name: "Invoices API",
+        identifier: "https://invoices.example.com",
+        isSystem: false,
+        scopes: [{ value: "read:invoices", description: "Read invoices" }],
+      },
+    ],
+    connections: [],
+  };
+  const scopes = (options?: { includeSystemScopes?: boolean }) =>
+    normalize(snapshot, options)
+      .permissions.filter((permission) => permission.type === "API_SCOPE")
+      .map((permission) => permission.permissionId);
+
+  assert.deepEqual(scopes(), [
+    "scope:https://invoices.example.com::read:invoices",
+    `scope:${management}::read:users`,
+  ]);
+  assert.equal(scopes({ includeSystemScopes: true }).includes(`scope:${management}::delete:users`), true);
+
+  const normalized = normalize(snapshot);
+  assert.equal(
+    normalized.hierarchy.some(
+      (link) => link.parentPermissionId === `api:${management}` && link.childPermissionId === `scope:${management}::read:users`,
+    ),
+    true,
+  );
+  const verified = Object.fromEntries(normalized.accounts.map((account) => [account.accountId, account.emailVerified]));
+  assert.deepEqual(verified, { "auth0|avery": false, "auth0|nomail": null });
+});
+
+test("a group mapped to a privileged role is privileged whatever its name", () => {
+  const snapshot: RawSnapshot = {
+    domain: "tenant.example.auth0.test",
+    applicationName: "Auth0 (tenant.example.auth0.test)",
+    usersSource: "list",
+    collectedAt: "2026-04-30T00:00:00.000Z",
+    users: [
+      {
+        userId: "samlp|okta-workforce|riley",
+        blocked: false,
+        identities: [{ provider: "samlp", connection: "okta-workforce", userId: "riley" }],
+        groups: [{ attribute: "groups", value: "Finance" }],
+      },
+      {
+        userId: "samlp|azure|kai",
+        blocked: false,
+        identities: [{ provider: "samlp", connection: "azure", userId: "kai" }],
+        groups: [{ attribute: "groups", value: "Finance" }],
+      },
+    ],
+    roles: [{ id: "rol_billingadmin", name: "Billing Admin", description: "", permissions: [], userIds: [] }],
+    organizations: [],
+    applications: [],
+    resourceServers: [],
+    connections: [],
+  };
+  const normalized = normalize(snapshot, {
+    groupRoleMap: [{ connection: "okta-workforce", group: "Finance", role: "Billing Admin" }],
+  });
+  const privileged = Object.fromEntries(normalized.accounts.map((account) => [account.accountId, account.privileged]));
+  assert.deepEqual(privileged, { "samlp|azure|kai": false, "samlp|okta-workforce|riley": true });
+  assert.deepEqual(normalized.unmatchedMappings, []);
+  assert.equal(normalized.permissions.filter((permission) => permission.type === "GROUP").length, 2);
+});
+
+test("users sharing a user_id across connections both become accounts", () => {
+  const db = (connection: string, email: string) => ({
+    userId: "auth0|7f3a",
+    email,
+    blocked: false,
+    identities: [{ provider: "auth0", connection, userId: "7f3a", isSocial: false }],
+  });
+  const snapshot: RawSnapshot = {
+    domain: "tenant.example.auth0.test",
+    applicationName: "Auth0 (tenant.example.auth0.test)",
+    usersSource: "export",
+    collectedAt: "2026-04-30T00:00:00.000Z",
+    users: [
+      db("legacy-db", "first@example.com"),
+      db("migration-db", "second@example.com"),
+      db("legacy-db", "first@example.com"),
+      {
+        userId: "samlp|okta-workforce|riley",
+        blocked: false,
+        identities: [{ provider: "samlp", connection: "okta-workforce", userId: "riley", isSocial: false }],
+      },
+      {
+        userId: "google-oauth2|samir",
+        blocked: false,
+        identities: [{ provider: "google-oauth2", connection: "google-oauth2", userId: "samir", isSocial: true }],
+      },
+      {
+        userId: "email|kai",
+        blocked: false,
+        identities: [{ provider: "email", connection: "email", userId: "kai", isSocial: false }],
+      },
+    ],
+    roles: [{ id: "rol_viewer", name: "Invoice Viewer", description: "", permissions: [], userIds: ["auth0|7f3a"] }],
+    organizations: [],
+    applications: [],
+    resourceServers: [],
+    connections: [],
+  };
+  const normalized = normalize(snapshot);
+  const byId = new Map(normalized.accounts.map((account) => [account.accountId, account]));
+  assert.deepEqual(
+    [...byId.keys()],
+    [
+      "auth0|7f3a@legacy-db",
+      "auth0|7f3a@migration-db",
+      "email|kai",
+      "google-oauth2|samir",
+      "samlp|okta-workforce|riley",
+    ],
+  );
+  assert.equal(byId.get("auth0|7f3a@migration-db")?.userId, "auth0|7f3a");
+  assert.match(byId.get("auth0|7f3a@legacy-db")?.description ?? "", /Shares user_id auth0\|7f3a with connection migration-db/);
+  assert.deepEqual(
+    normalized.assignments.map((assignment) => assignment.accountId),
+    ["auth0|7f3a@legacy-db", "auth0|7f3a@migration-db"],
+  );
+  assert.deepEqual(normalized.sharedUserIds, [
+    { userId: "auth0|7f3a", accountIds: ["auth0|7f3a@legacy-db", "auth0|7f3a@migration-db"] },
+  ]);
+  assert.deepEqual(
+    Object.fromEntries(normalized.accounts.map((account) => [account.accountId, account.accountSource])),
+    {
+      "auth0|7f3a@legacy-db": "DATABASE",
+      "auth0|7f3a@migration-db": "DATABASE",
+      "email|kai": "PASSWORDLESS",
+      "google-oauth2|samir": "SOCIAL",
+      "samlp|okta-workforce|riley": "ENTERPRISE",
+    },
+  );
+});
+
 test("config requires a bare domain and prefers the environment over a file", async () => {
   await assert.rejects(
     () => loadConfig({}, { AUTH0_DOMAIN: "https://tenant.example.auth0.com" }),
@@ -160,6 +333,19 @@ test("config requires a bare domain and prefers the environment over a file", as
   assert.equal(config.clientId, "from-env");
   assert.equal(config.out, "from-flag");
   assert.equal(config.perPage, 10);
+  assert.equal(config.includeSystemScopes, false);
+  const parsed = parseArgv(["export", "--include-system-scopes"]);
+  assert.equal(parsed.kind === "export" && parsed.flags.includeSystemScopes, true);
+  const fromEnv = await loadConfig(
+    {},
+    {
+      AUTH0_DOMAIN: "tenant.example.auth0.test",
+      AUTH0_CLIENT_ID: "from-env",
+      AUTH0_CLIENT_SECRET: "env-secret-value",
+      AUTH0_INCLUDE_SYSTEM_SCOPES: "true",
+    },
+  );
+  assert.equal(fromEnv.includeSystemScopes, true);
   assert.deepEqual(parseArgv(["scopes"]), { kind: "scopes" });
   assert.equal(parseArgv(["--help"]).kind, "help");
   assert.throws(() => parseArgv(["export", "--per-page", "0"]), ConfigError);

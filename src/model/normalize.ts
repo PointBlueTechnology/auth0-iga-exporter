@@ -1,12 +1,15 @@
 import {
   apiPermissionId,
   applicationPermissionId,
+  groupPermissionId,
   organizationPermissionId,
   organizationRolePermissionId,
   rolePermissionId,
   scopePermissionId,
 } from "./ids.js";
 import type {
+  AccountSource,
+  GroupRoleMapping,
   IgAccount,
   IgAssignment,
   IgHierarchy,
@@ -17,7 +20,7 @@ import type {
   RawUser,
 } from "./types.js";
 
-const PRIVILEGED_NAME = /\b(admin|administrator|owner|superuser)\b/i;
+const PRIVILEGED_NAME = /\b(admins?|administrators?|owners?|superusers?)\b/i;
 
 function compare(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -29,6 +32,36 @@ function firstIdentity(user: RawUser): { provider: string; connection: string } 
     provider: identity?.provider ?? "",
     connection: identity?.connection ?? "",
   };
+}
+
+const ENTERPRISE_PROVIDERS = new Set([
+  "ad",
+  "adfs",
+  "auth0-oidc",
+  "google-apps",
+  "ip",
+  "office365",
+  "oidc",
+  "okta",
+  "pingfederate",
+  "samlp",
+  "sharepoint",
+  "waad",
+]);
+
+/**
+ * Database users carry provider `auth0`, passwordless users `email` or `sms`.
+ * Social and enterprise identities are told apart by the provider, then by `isSocial`.
+ */
+function accountSource(user: RawUser): AccountSource {
+  const identity = user.identities[0];
+  if (!identity) return "UNKNOWN";
+  if (identity.provider === "auth0") return "DATABASE";
+  if (identity.provider === "email" || identity.provider === "sms") return "PASSWORDLESS";
+  if (ENTERPRISE_PROVIDERS.has(identity.provider)) return "ENTERPRISE";
+  if (identity.isSocial === true) return "SOCIAL";
+  if (identity.isSocial === false) return "ENTERPRISE";
+  return "UNKNOWN";
 }
 
 function accountName(user: RawUser): string {
@@ -51,14 +84,18 @@ function describeUser(user: RawUser, provider: string, connection: string): stri
   return "Auth0 account";
 }
 
-function toAccount(user: RawUser): IgAccount {
+function toAccount(user: RawUser, accountId: string, sharedWith: string[]): IgAccount {
   const { provider, connection } = firstIdentity(user);
   const name = accountName(user);
+  const shared =
+    sharedWith.length > 0
+      ? `. Shares user_id ${user.userId} with connection ${sharedWith.join(", ")}; role and organization assignments on that user_id are attached to each account`
+      : "";
   return {
-    accountId: user.userId,
+    accountId,
     name,
     displayName: displayName(user, name),
-    description: describeUser(user, provider, connection),
+    description: describeUser(user, provider, connection) + shared,
     email: user.email ?? "",
     username: user.username ?? "",
     idmAccountId: user.email || user.userId,
@@ -72,18 +109,37 @@ function toAccount(user: RawUser): IgAccount {
     createdAt: user.createdAt ?? "",
     updatedAt: user.updatedAt ?? "",
     loginsCount: user.loginsCount ?? null,
-    emailVerified: user.emailVerified ?? null,
+    // Auth0 omits email_verified on some users (custom-database imports, for one)
+    // and treats that as unverified. Empty means there is no email to verify.
+    emailVerified: user.emailVerified ?? (user.email ? false : null),
     givenName: user.givenName ?? "",
     familyName: user.familyName ?? "",
+    userId: user.userId,
+    accountSource: accountSource(user),
   };
 }
 
-function ensureUser(users: Map<string, RawUser>, userId: string, hint?: { email?: string; name?: string }): void {
+/** Users by user_id. More than one entry means connections share the user_id. */
+type UsersById = Map<string, RawUser[]>;
+
+function ensureUser(users: UsersById, userId: string, hint?: { email?: string; name?: string }): void {
   if (users.has(userId)) return;
   const stub: RawUser = { userId, blocked: false, identities: [] };
   if (hint?.email) stub.email = hint.email;
   if (hint?.name) stub.name = hint.name;
-  users.set(userId, stub);
+  users.set(userId, [stub]);
+}
+
+/**
+ * A user_id normally is the account id. Database connections put no connection in
+ * the user_id (`auth0|<id>`), so two custom-database connections that return the same
+ * upstream id produce two users with one user_id. Those accounts get
+ * `<user_id>@<connection>` so both reach the review. Social and enterprise user_ids
+ * include the connection and cannot collide this way.
+ */
+function accountIdOf(user: RawUser, users: UsersById): string {
+  const shared = (users.get(user.userId)?.length ?? 0) > 1;
+  return shared ? `${user.userId}@${firstIdentity(user).connection || "unknown"}` : user.userId;
 }
 
 /**
@@ -95,10 +151,31 @@ function ensureUser(users: Map<string, RawUser>, userId: string, hint?: { email?
  * can see what a role grants without certifying every scope as its own assignment.
  * Auth0 has no human user-to-application membership, so applications and APIs are
  * catalog permissions with no account assignments.
+ *
+ * The Management API is a system API that declares every tenant-administration
+ * scope (about 280). Unless includeSystemScopes is set, its scopes become
+ * permissions only when a role grants them. The catalog keeps the full list.
+ *
+ * Groups come from configured user attributes, usually `groups` asserted by an
+ * enterprise connection at sign-in. Each one is a GROUP permission scoped to the
+ * user's connection, with a GROUP_MEMBER assignment. Auth0 does not turn groups into
+ * roles by itself, so a group-to-role map (when given) only adds GRANTS links: the
+ * reviewer sees which role a group is meant to confer, not a role assignment.
  */
-export function normalize(snapshot: RawSnapshot): NormalizedExport {
-  const users = new Map<string, RawUser>();
-  for (const user of snapshot.users) users.set(user.userId, user);
+export function normalize(
+  snapshot: RawSnapshot,
+  options: { includeSystemScopes?: boolean; groupRoleMap?: GroupRoleMapping[] } = {},
+): NormalizedExport {
+  const users: UsersById = new Map();
+  for (const user of snapshot.users) {
+    const records = users.get(user.userId) ?? [];
+    const connection = firstIdentity(user).connection;
+    if (!records.some((record) => firstIdentity(record).connection === connection)) records.push(user);
+    users.set(user.userId, records);
+  }
+  // Role and organization payloads carry only the user_id, so they apply to every account holding it.
+  const accountIdsFor = (userId: string): string[] =>
+    (users.get(userId) ?? []).map((user) => accountIdOf(user, users));
 
   const permissions = new Map<string, IgPermission>();
   const assignments = new Map<string, IgAssignment>();
@@ -118,6 +195,13 @@ export function normalize(snapshot: RawSnapshot): NormalizedExport {
 
   const applicationName = snapshot.applicationName;
   const scopeGrantsByRole = new Map<string, string[]>();
+  const grantedScopeIds = new Set(
+    snapshot.roles.flatMap((role) =>
+      role.permissions.map((permission) =>
+        scopePermissionId(permission.resourceServerIdentifier ?? "", permission.permissionName),
+      ),
+    ),
+  );
 
   for (const api of snapshot.resourceServers) {
     const apiId = apiPermissionId(api.identifier);
@@ -131,6 +215,7 @@ export function normalize(snapshot: RawSnapshot): NormalizedExport {
     });
     for (const scope of api.scopes) {
       const scopeId = scopePermissionId(api.identifier, scope.value);
+      if (api.isSystem && !options.includeSystemScopes && !grantedScopeIds.has(scopeId)) continue;
       addPermission({
         permissionId: scopeId,
         name: scope.value,
@@ -175,7 +260,9 @@ export function normalize(snapshot: RawSnapshot): NormalizedExport {
     scopeGrantsByRole.set(role.id, granted);
     for (const userId of role.userIds) {
       ensureUser(users, userId);
-      addAssignment({ accountId: userId, permissionId: roleId, assignmentType: "DIRECT_ROLE" });
+      for (const accountId of accountIdsFor(userId)) {
+        addAssignment({ accountId, permissionId: roleId, assignmentType: "DIRECT_ROLE" });
+      }
     }
   }
 
@@ -207,15 +294,15 @@ export function normalize(snapshot: RawSnapshot): NormalizedExport {
           addLink({ parentPermissionId: permissionId, childPermissionId: scopeId, relation: "GRANTS" });
         }
       }
-      addAssignment({
-        accountId: member.userId,
-        permissionId,
-        assignmentType: "ORGANIZATION_ROLE",
-      });
+      for (const accountId of accountIdsFor(member.userId)) {
+        addAssignment({ accountId, permissionId, assignmentType: "ORGANIZATION_ROLE" });
+      }
     };
     for (const member of org.members) {
       ensureUser(users, member.userId, { email: member.email, name: member.name });
-      addAssignment({ accountId: member.userId, permissionId: orgId, assignmentType: "ORGANIZATION_MEMBER" });
+      for (const accountId of accountIdsFor(member.userId)) {
+        addAssignment({ accountId, permissionId: orgId, assignmentType: "ORGANIZATION_MEMBER" });
+      }
       for (const role of member.roles) {
         if (!role.id) continue;
         addOrgRole(member, role.id, role.name || role.id);
@@ -234,13 +321,70 @@ export function normalize(snapshot: RawSnapshot): NormalizedExport {
     });
   }
 
-  const accounts = [...users.values()].map(toAccount);
+  // Groups by connection, so a map entry can find "Billing Admins" on one IdP or on all of them.
+  const groupsByValue = new Map<string, { connection: string; permissionId: string }[]>();
+  for (const user of [...users.values()].flat()) {
+    const connection = firstIdentity(user).connection || "unknown";
+    for (const group of user.groups ?? []) {
+      const permissionId = groupPermissionId(connection, group.value);
+      if (!permissions.has(permissionId)) {
+        addPermission({
+          permissionId,
+          name: group.value,
+          description: `Group asserted by connection ${connection} (attribute ${group.attribute})`,
+          type: "GROUP",
+          value: group.value,
+          applicationName,
+        });
+        const known = groupsByValue.get(group.value) ?? [];
+        known.push({ connection, permissionId });
+        groupsByValue.set(group.value, known);
+      }
+      addAssignment({ accountId: accountIdOf(user, users), permissionId, assignmentType: "GROUP_MEMBER" });
+    }
+  }
+
+  const unmatchedMappings: GroupRoleMapping[] = [];
+  const grantedRolesByGroup = new Map<string, string[]>();
+  for (const mapping of options.groupRoleMap ?? []) {
+    const roles = snapshot.roles.filter((role) => role.id === mapping.role || role.name === mapping.role);
+    const groups = (groupsByValue.get(mapping.group) ?? []).filter(
+      (group) => !mapping.connection || group.connection === mapping.connection,
+    );
+    if (roles.length === 0 || groups.length === 0) {
+      unmatchedMappings.push(mapping);
+      continue;
+    }
+    for (const group of groups) {
+      for (const role of roles) {
+        const roleId = rolePermissionId(role.id);
+        addLink({ parentPermissionId: group.permissionId, childPermissionId: roleId, relation: "GRANTS" });
+        grantedRolesByGroup.set(group.permissionId, [...(grantedRolesByGroup.get(group.permissionId) ?? []), roleId]);
+      }
+    }
+  }
+
+  const sharedUserIds: NormalizedExport["sharedUserIds"] = [];
+  const accounts: IgAccount[] = [];
+  for (const [userId, records] of users) {
+    for (const user of records) {
+      const others = records
+        .filter((record) => record !== user)
+        .map((record) => firstIdentity(record).connection || "unknown");
+      accounts.push(toAccount(user, accountIdOf(user, users), others));
+    }
+    if (records.length > 1) sharedUserIds.push({ userId, accountIds: accountIdsFor(userId).sort(compare) });
+  }
   const privilegedIds = new Set(
     [...permissions.values()]
-      .filter((permission) => permission.type === "ROLE" || permission.type === "ORGANIZATION_ROLE")
+      .filter((permission) => ["ROLE", "ORGANIZATION_ROLE", "GROUP"].includes(permission.type))
       .filter((permission) => PRIVILEGED_NAME.test(permission.name))
       .map((permission) => permission.permissionId),
   );
+  // A group mapped to a privileged role is privileged too, whatever it is called.
+  for (const [groupId, roleIds] of grantedRolesByGroup) {
+    if (roleIds.some((roleId) => privilegedIds.has(roleId))) privilegedIds.add(groupId);
+  }
   for (const account of accounts) {
     account.privileged = [...assignments.values()].some(
       (assignment) => assignment.accountId === account.accountId && privilegedIds.has(assignment.permissionId),
@@ -271,6 +415,8 @@ export function normalize(snapshot: RawSnapshot): NormalizedExport {
     permissions: permissionList,
     assignments: assignmentList,
     hierarchy: hierarchyList,
+    unmatchedMappings,
+    sharedUserIds,
   };
 }
 

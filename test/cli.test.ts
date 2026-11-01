@@ -12,8 +12,10 @@ import {
   SECRET_CONNECTION,
   SECRET_IDP_ACCESS,
   SECRET_IDP_REFRESH,
+  SAML_USER,
   SECRET_SIGNING,
   TENANT_DOMAIN,
+  fictionalTenant,
 } from "./fixture.ts";
 import { credentialEnv, childEnv, runCli, tempDir } from "./helpers.ts";
 import { decoyList, startMock, type MockHandle } from "./mock-server.ts";
@@ -226,6 +228,129 @@ test("export mode downloads gzip NDJSON and organization roles are loaded separa
     await mock.close();
     await out.remove();
   }
+});
+
+function tenantWithSamlUser() {
+  const fixture = fictionalTenant();
+  fixture.users.push(structuredClone(SAML_USER));
+  return fixture;
+}
+
+for (const usersSource of ["list", "export"]) {
+  test(`SSO groups become GROUP permissions and map to roles (${usersSource})`, { timeout: 30_000 }, async () => {
+    const mock = await startMock({ fixture: tenantWithSamlUser() });
+    const out = await tempDir();
+    try {
+      const map = join(out.dir, "group-roles.json");
+      await writeFile(
+        map,
+        JSON.stringify([
+          { connection: "okta-workforce", group: "Billing Admins", role: "Billing Admin" },
+          { group: "Engineering", role: "No Such Role" },
+          { group: "Nobody Has This", role: "rol_viewer" },
+        ]),
+      );
+      const result = await runCli(
+        [
+          "export",
+          "--out",
+          out.dir,
+          "--format",
+          "all",
+          "--users-source",
+          usersSource,
+          "--job-poll-ms",
+          "10",
+          "--group-attributes",
+          "groups,app_metadata.teams",
+          "--group-role-map",
+          map,
+        ],
+        credentialEnv(mock.baseUrl),
+      );
+      assert.equal(result.code, 0, result.stderr);
+      assert.match(result.stderr, /"No Such Role".*matched no role/);
+      assert.match(result.stderr, /"Nobody Has This".*matched no exported group/);
+
+      const group = "group:okta-workforce::Billing Admins";
+      const permissions = parseCsv(await readFile(join(out.dir, "permissions.csv"), "utf8"));
+      const groups = permissions.filter((row) => row[3] === "GROUP").map((row) => row[0]);
+      assert.deepEqual(groups.sort(), [group, "group:okta-workforce::Engineering", "group:okta-workforce::payments"]);
+
+      const assignments = parseCsv(await readFile(join(out.dir, "assignments.csv"), "utf8"));
+      const pairs = assignments.slice(1).map((row) => row.join("|"));
+      assert.ok(pairs.includes(`samlp|okta-workforce|riley|${group}|GROUP_MEMBER`));
+      assert.equal(pairs.some((pair) => pair.startsWith("samlp|okta-workforce|riley|role:")), false);
+
+      const links = parseCsv(await readFile(join(out.dir, "permission-hierarchy.csv"), "utf8")).map((row) => row.join("|"));
+      assert.ok(links.includes(`${group}|role:rol_billingadmin|GRANTS`));
+
+      const accounts = parseCsv(await readFile(join(out.dir, "accounts.csv"), "utf8"));
+      const riley = accounts.find((row) => row[0] === "samlp|okta-workforce|riley");
+      assert.equal(riley?.[9], "true");
+
+      const scim = JSON.parse(await readFile(join(out.dir, "scim-groups.json"), "utf8"));
+      const scimGroup = scim.Resources.find((resource: { id: string }) => resource.id === group);
+      assert.deepEqual(scimGroup.members.map((member: { value: string }) => member.value), ["samlp|okta-workforce|riley"]);
+
+      const bundle = await readFile(join(out.dir, "auth0-iga.json"), "utf8");
+      assert.equal(bundle.includes("support_tier"), false, "app_metadata outside the group paths is not written");
+      if (usersSource === "export") {
+        const fields = (mock.exportRequest as { fields: Array<{ name: string }> }).fields.map((field) => field.name);
+        assert.ok(fields.includes("groups"));
+        assert.ok(fields.includes("group_ids") === false);
+        assert.ok(fields.includes("app_metadata"));
+      }
+    } finally {
+      await mock.close();
+      await out.remove();
+    }
+  });
+}
+
+for (const usersSource of ["list", "export"]) {
+  test(`a user_id shared by two database connections keeps both accounts (${usersSource})`, { timeout: 30_000 }, async () => {
+    const fixture = fictionalTenant();
+    const twin = structuredClone(fixture.users.find((user) => user.user_id === "auth0|avery"));
+    assert.ok(twin);
+    twin.email = "avery.legacy@example.com";
+    twin.identities = [{ provider: "auth0", connection: "legacy-db", user_id: "avery", isSocial: false }];
+    fixture.users.push(twin);
+    const mock = await startMock({ fixture });
+    const out = await tempDir();
+    try {
+      const result = await runCli(
+        ["export", "--out", out.dir, "--format", "csv", "--users-source", usersSource, "--job-poll-ms", "10"],
+        credentialEnv(mock.baseUrl),
+      );
+      assert.equal(result.code, 0, result.stderr);
+      assert.match(result.stdout, /exported 4 accounts/);
+      assert.match(result.stderr, /user_id auth0\|avery is held by users on more than one connection/);
+      const accounts = parseCsv(await readFile(join(out.dir, "accounts.csv"), "utf8"));
+      const header = accounts[0] ?? [];
+      const ids = accounts.slice(1).map((row) => row[0]);
+      assert.ok(ids.includes("auth0|avery@legacy-db"));
+      assert.ok(ids.includes("auth0|avery@Username-Password-Authentication"));
+      const legacy = accounts.find((row) => row[0] === "auth0|avery@legacy-db") ?? [];
+      assert.equal(legacy[header.indexOf("userId")], "auth0|avery");
+      assert.equal(legacy[header.indexOf("accountSource")], "DATABASE");
+      const pairs = parseCsv(await readFile(join(out.dir, "assignments.csv"), "utf8")).map((row) => row.join("|"));
+      assert.ok(pairs.includes("auth0|avery@legacy-db|role:rol_billingadmin|DIRECT_ROLE"));
+      assert.ok(pairs.includes("auth0|avery@Username-Password-Authentication|role:rol_billingadmin|DIRECT_ROLE"));
+    } finally {
+      await mock.close();
+      await out.remove();
+    }
+  });
+}
+
+test("group attributes in user_metadata are refused", async () => {
+  const result = await runCli(
+    ["export", "--group-attributes", "user_metadata.groups"],
+    credentialEnv("http://127.0.0.1:9"),
+  );
+  assert.equal(result.code === 0, false);
+  assert.match(result.stderr, /user_metadata, which the user can edit/);
 });
 
 test("a missing connections scope does not fail the export", { timeout: 30_000 }, async () => {

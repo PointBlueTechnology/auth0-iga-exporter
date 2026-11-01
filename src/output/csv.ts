@@ -48,6 +48,8 @@ export const ACCOUNT_HEADERS = [
   "emailVerified",
   "givenName",
   "familyName",
+  "userId",
+  "accountSource",
 ] as const;
 
 export function accountsToCsv(accounts: IgAccount[]): string {
@@ -74,6 +76,8 @@ export function accountsToCsv(accounts: IgAccount[]): string {
       optionalBool(account.emailVerified),
       account.givenName,
       account.familyName,
+      account.userId,
+      account.accountSource,
     ]),
   );
 }

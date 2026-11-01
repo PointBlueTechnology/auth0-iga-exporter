@@ -1,7 +1,7 @@
 {
   "schema": "pointblue.auth0-iga-exporter/v0.1",
   "generator": "auth0-iga-exporter 0.1.0",
-  "exportedAt": "2026-10-31T20:03:52.387Z",
+  "exportedAt": "2026-11-01T14:51:44.509Z",
   "domain": "tenant.example.auth0.test",
   "applicationName": "Fictional Northwind tenant",
   "usersSource": "list",

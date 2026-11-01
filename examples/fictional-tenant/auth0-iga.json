@@ -2,7 +2,7 @@
   "schema": "pointblue.auth0-iga-exporter/v0.1",
   "generator": "auth0-iga-exporter 0.1.0",
   "meta": {
-    "exportedAt": "2026-10-31T20:03:52.387Z",
+    "exportedAt": "2026-11-01T14:51:44.509Z",
     "domain": "tenant.example.auth0.test",
     "applicationName": "Fictional Northwind tenant",
     "usersSource": "list"
@@ -41,7 +41,9 @@
       "loginsCount": 42,
       "emailVerified": true,
       "givenName": "Avery",
-      "familyName": "Chen"
+      "familyName": "Chen",
+      "userId": "auth0|avery",
+      "accountSource": "DATABASE"
     },
     {
       "accountId": "auth0|jordan",
@@ -70,7 +72,9 @@
       "loginsCount": 3,
       "emailVerified": true,
       "givenName": "Jordan",
-      "familyName": "Blake"
+      "familyName": "Blake",
+      "userId": "auth0|jordan",
+      "accountSource": "DATABASE"
     },
     {
       "accountId": "google-oauth2|samir",
@@ -99,7 +103,9 @@
       "loginsCount": null,
       "emailVerified": true,
       "givenName": "Samir",
-      "familyName": "Okonkwo"
+      "familyName": "Okonkwo",
+      "userId": "google-oauth2|samir",
+      "accountSource": "SOCIAL"
     }
   ],
   "permissions": [
