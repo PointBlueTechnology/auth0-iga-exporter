@@ -373,7 +373,7 @@ export function normalize(
         .map((record) => firstIdentity(record).connection || "unknown");
       accounts.push(toAccount(user, accountIdOf(user, users), others));
     }
-    if (records.length > 1) sharedUserIds.push({ userId, accountIds: accountIdsFor(userId) });
+    if (records.length > 1) sharedUserIds.push({ userId, accountIds: accountIdsFor(userId).sort(compare) });
   }
   const privilegedIds = new Set(
     [...permissions.values()]
