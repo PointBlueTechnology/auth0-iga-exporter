@@ -342,6 +342,6 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, test, and build on Node.j
 
 ## About
 
-[PointBlue Technology](https://www.pointbluetech.com) publishes this as an open-source portfolio project ([GitHub](https://github.com/PointBlueTechnology)). Jerry Combs consults on OpenText Identity Manager and Identity Governance, and previously engineered on OpenText / NetIQ Identity Manager. The exporter is the Auth0 side of that work: get the accounts and entitlements into a shape Identity Governance can review.
+[PointBlue Technology](https://www.pointbluetech.com) publishes this as an open-source portfolio project ([GitHub](https://github.com/PointBlueTechnology)). Jerry Combs consults on OpenText Identity Manager and Identity Governance. The exporter is the Auth0 side of that work: get the accounts and entitlements into a shape Identity Governance can review.
 
 Licensed under the [Apache License 2.0](LICENSE).
